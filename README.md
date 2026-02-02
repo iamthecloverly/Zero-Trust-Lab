@@ -2,12 +2,9 @@
 
 An interactive web application that simulates and visualizes Zero Trust network security principles. Built to demonstrate modern security concepts through an intuitive, hands-on experience.
 
-
-<img width="1458" height="844" alt="image" src="https://github.com/user-attachments/assets/18c9e86a-9cb0-43a0-b1c9-7cc5450a48ef" />
-
 ## Live Demo
 
-[[View the live application](https://zero-trust-mvc.replit.app)]
+[View the live application](#) *(Add your deployed URL here)*
 
 ## Overview
 
