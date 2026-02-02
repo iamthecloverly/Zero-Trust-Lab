@@ -4,7 +4,12 @@ An interactive web application that simulates and visualizes Zero Trust network 
 
 ## Live Demo
 
-[View the live application](#) *(Add your deployed URL here)*
+**Deploy this app for FREE on:**
+- [Render](https://render.com) - Recommended (see [DEPLOYMENT.md](DEPLOYMENT.md))
+- [Railway](https://railway.app)
+- Other Node.js hosting platforms
+
+See detailed deployment instructions in [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## Overview
 
@@ -75,16 +80,48 @@ Every connection is evaluated using configurable security factors:
 
 ## Getting Started
 
+### Prerequisites
+- Node.js 18+ 
+- PostgreSQL database (get free at [Neon](https://neon.tech))
+- OpenAI API key (optional, for AI features)
+
+### Local Development
+
 ```bash
-# Install dependencies
+# 1. Clone the repository
+git clone <your-repo-url>
+cd Zero-Trust-Lab
+
+# 2. Install dependencies
 npm install
 
-# Start development server
-npm run dev
+# 3. Set up environment variables
+cp .env.example .env
+# Edit .env and add your DATABASE_URL and OPENAI_API_KEY
 
-# Push database schema
+# 4. Push database schema
 npm run db:push
+
+# 5. Start development server
+npm run dev
 ```
+
+The app will be available at `http://localhost:5000`
+
+### Building for Production
+
+```bash
+npm run build
+npm run start
+```
+
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on deploying to:
+- Render (recommended)
+- Railway
+- Heroku
+- Vercel
 
 ## Project Structure
 

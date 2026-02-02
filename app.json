@@ -1,0 +1,15 @@
+{
+  "name": "zerotrust-lab",
+  "region": "us",
+  "build": {
+    "builder": "heroku/nodejs"
+  },
+  "run": {
+    "web": "npm run start"
+  },
+  "env": {
+    "NODE_ENV": {
+      "value": "production"
+    }
+  }
+}
