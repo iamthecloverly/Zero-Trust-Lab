@@ -41,7 +41,7 @@ Render offers **free hosting** for web services - perfect for this app!
    | **Region** | Choose closest to you |
    | **Branch** | `master` |
    | **Runtime** | `Node` |
-   | **Build Command** | `npm install && npm run build` |
+   | **Build Command** | `npm install --include=dev && npm run build` |
    | **Start Command** | `npm run start` |
    | **Instance Type** | **Free** |
 
