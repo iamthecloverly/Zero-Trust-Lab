@@ -98,7 +98,10 @@ export class MemStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const newUser: User = { ...user };
+    const newUser: User = {
+      ...user,
+      mfaEnabled: user.mfaEnabled ?? false,
+    };
     this.users.set(newUser.id, newUser);
     return newUser;
   }
@@ -112,7 +115,10 @@ export class MemStorage implements IStorage {
   }
 
   async createDevice(device: InsertDevice): Promise<Device> {
-    const newDevice: Device = { ...device };
+    const newDevice: Device = {
+      ...device,
+      verified: device.verified ?? false,
+    };
     this.devices.set(newDevice.id, newDevice);
     return newDevice;
   }
@@ -175,6 +181,7 @@ export class MemStorage implements IStorage {
     const newPolicy: Policy = {
       ...policy,
       id,
+      enabled: policy.enabled ?? true,
     };
     this.policies.set(id, newPolicy);
     return newPolicy;
@@ -287,7 +294,7 @@ export class DbStorage implements IStorage {
   }
 }
 
-// TEMPORARY: Using MemStorage due to DATABASE_URL pointing to disabled Neon endpoint
-// The environment variable needs to be refreshed to point to the new Replit PostgreSQL database
-// TODO: Switch back to DbStorage once DATABASE_URL is updated
-export const storage = new MemStorage();
+// Use DbStorage for production, fallback to MemStorage if DATABASE_URL is not set
+export const storage = process.env.DATABASE_URL && process.env.NODE_ENV === 'production'
+  ? new DbStorage()
+  : new MemStorage();

@@ -98,8 +98,13 @@ export function MFAChallengeDialog({
                 data-testid="input-mfa-code"
               />
               <p className="text-xs text-muted-foreground">
-                For demo purposes, use code: <strong>123456</strong>
+                Enter the 6-digit verification code from your authenticator app.
               </p>
+              <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
+                <p className="text-muted-foreground">
+                  💡 <strong>Demo Mode:</strong> Use code <code className="px-1 py-0.5 bg-background rounded">123456</code> or <code className="px-1 py-0.5 bg-background rounded">000000</code>
+                </p>
+              </div>
             </div>
 
             {error && (

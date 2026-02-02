@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Network } from "vis-network";
 import { DataSet } from "vis-data";
 import type { NetworkGraph } from "@shared/schema";
+import type { Node, Edge } from "vis-network";
 
 interface NetworkGraphProps {
   data: NetworkGraph;
@@ -15,7 +16,7 @@ export function NetworkGraphVisualization({ data, onNodeClick }: NetworkGraphPro
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const nodes = new DataSet(
+    const nodes = new DataSet<Node>(
       data.nodes.map((node) => ({
         id: node.id,
         label: node.label,
@@ -26,8 +27,9 @@ export function NetworkGraphVisualization({ data, onNodeClick }: NetworkGraphPro
       }))
     );
 
-    const edges = new DataSet(
-      data.edges.map((edge) => ({
+    const edges = new DataSet<Edge>(
+      data.edges.map((edge, index) => ({
+        id: index,
         from: edge.from,
         to: edge.to,
         label: edge.label,
@@ -47,7 +49,9 @@ export function NetworkGraphVisualization({ data, onNodeClick }: NetworkGraphPro
       },
       edges: {
         smooth: {
+          enabled: true,
           type: "continuous",
+          roundness: 0.5,
         },
         shadow: true,
       },
