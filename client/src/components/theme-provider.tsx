@@ -24,15 +24,24 @@ export function ThemeProvider({
   defaultTheme = "dark",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("theme") as Theme) || defaultTheme
-  );
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const stored = localStorage.getItem("theme");
+      return stored === "dark" || stored === "light" ? stored : defaultTheme;
+    } catch {
+      return defaultTheme;
+    }
+  });
 
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove("light", "dark");
     root.classList.add(theme);
-    localStorage.setItem("theme", theme);
+    try {
+      localStorage.setItem("theme", theme);
+    } catch {
+      // Ignore storage errors (e.g. private browsing mode)
+    }
   }, [theme]);
 
   const value = {

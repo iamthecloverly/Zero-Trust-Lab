@@ -1,5 +1,11 @@
 import type { User, Device, Policy, TrustEvaluation } from "@shared/schema";
 
+const POLICY_CONFIG = {
+  allowedRegions: ["US", "CA"],
+  serverDeviceType: "Server",
+  adminRole: "Admin",
+} as const;
+
 export class ZeroTrustPolicyEngine {
   evaluateConnection(
     user: User,
@@ -35,8 +41,7 @@ export class ZeroTrustPolicyEngine {
     }
 
     const geoPolicy = enabledPolicies.find((p) => p.type === "geo");
-    const allowedRegions = ["US", "CA"];
-    if (geoPolicy && !allowedRegions.includes(device.location)) {
+    if (geoPolicy && !POLICY_CONFIG.allowedRegions.includes(device.location as "US" | "CA")) {
       trustScore -= 20;
       breakdown.push({
         label: "Restricted Geographic Location",
@@ -46,8 +51,8 @@ export class ZeroTrustPolicyEngine {
     }
 
     const rolePolicy = enabledPolicies.find((p) => p.type === "role");
-    const isServerAccess = device.type === "Server";
-    const isAdmin = user.role === "Admin";
+    const isServerAccess = device.type === POLICY_CONFIG.serverDeviceType;
+    const isAdmin = user.role === POLICY_CONFIG.adminRole;
     if (rolePolicy && isServerAccess && !isAdmin) {
       trustScore -= 10;
       breakdown.push({
@@ -91,12 +96,20 @@ export class ZeroTrustPolicyEngine {
       })),
     ];
 
-    const edges = connections.map((conn) => {
+    // Keep only the most recent verdict per user→device pair to avoid duplicate edge IDs
+    const latestByPair = new Map<string, typeof connections[0]>();
+    for (const conn of connections) {
+      latestByPair.set(`${conn.sourceId}-${conn.targetId}`, conn);
+    }
+
+    const edges = Array.from(latestByPair.values()).map((conn) => {
       let color: string;
       let dashes = false;
 
+      let width = 2;
       if (conn.verdict === "ALLOW") {
         color = "#22c55e";
+        width = 3;
       } else if (conn.verdict === "CHALLENGE_MFA") {
         color = "#f59e0b";
         dashes = true;
@@ -105,13 +118,20 @@ export class ZeroTrustPolicyEngine {
         dashes = true;
       }
 
+      const shortLabel =
+        conn.verdict === "ALLOW"
+          ? "✓ ALLOW"
+          : conn.verdict === "CHALLENGE_MFA"
+            ? "⚠ MFA"
+            : "✕ DENY";
+
       return {
         from: conn.sourceId,
         to: conn.targetId,
-        label: conn.verdict,
+        label: shortLabel,
         color,
         dashes,
-        width: 2,
+        width,
       };
     });
 

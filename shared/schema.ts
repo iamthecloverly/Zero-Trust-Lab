@@ -97,3 +97,38 @@ export type SimulationResponse = {
   evaluation: TrustEvaluation;
   graph: NetworkGraph;
 };
+
+// Analytics types
+export type PolicyViolation = {
+  policyType: "mfa" | "device" | "geo" | "role";
+  violationCount: number;
+};
+
+export type TrustScoreDistribution = {
+  range: string;
+  count: number;
+};
+
+export type RecentSimulation = {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  verdict: "ALLOW" | "CHALLENGE_MFA" | "DENY";
+  trustScore: number;
+  timestamp: string;
+  action: string;
+};
+
+export type AnalyticsResponse = {
+  totalConnections: number;
+  allowCount: number;
+  denyCount: number;
+  challengeCount: number;
+  allowRate: number;
+  denyRate: number;
+  challengeRate: number;
+  avgTrustScore: number;
+  policyViolations: PolicyViolation[];
+  trustScoreDistribution: TrustScoreDistribution[];
+  recentTrend: RecentSimulation[];
+};

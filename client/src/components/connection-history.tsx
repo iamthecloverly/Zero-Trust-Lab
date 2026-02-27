@@ -2,28 +2,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckCircle2, AlertTriangle, XCircle, ArrowRight, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Connection } from "@shared/schema";
 
 interface ConnectionHistoryProps {
   connections: Connection[];
+  scrollHeight?: string;
+  selectedId?: string | null;
+  onSelect?: (conn: Connection) => void;
 }
 
-export function ConnectionHistory({ connections }: ConnectionHistoryProps) {
+export function ConnectionHistory({
+  connections,
+  scrollHeight = "h-[400px]",
+  selectedId,
+  onSelect,
+}: ConnectionHistoryProps) {
   const verdictConfig = {
     ALLOW: {
       icon: CheckCircle2,
       variant: "default" as const,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-status-allow",
     },
     CHALLENGE_MFA: {
       icon: AlertTriangle,
       variant: "secondary" as const,
-      color: "text-orange-600 dark:text-orange-400",
+      color: "text-status-challenge",
     },
     DENY: {
       icon: XCircle,
       variant: "destructive" as const,
-      color: "text-red-600 dark:text-red-400",
+      color: "text-status-deny",
     },
   };
 
@@ -51,10 +60,13 @@ export function ConnectionHistory({ connections }: ConnectionHistoryProps) {
         <CardTitle className="text-lg font-semibold">Connection History</CardTitle>
         <p className="text-sm text-muted-foreground">
           {connections.length} connection{connections.length !== 1 ? "s" : ""} logged
+          {onSelect && (
+            <span className="ml-1 text-muted-foreground/70">· click a row to inspect</span>
+          )}
         </p>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px] pr-4">
+        <ScrollArea className={`${scrollHeight} pr-4`}>
           <div className="space-y-3">
             {connections
               .slice()
@@ -62,12 +74,18 @@ export function ConnectionHistory({ connections }: ConnectionHistoryProps) {
               .map((conn) => {
                 const config = verdictConfig[conn.verdict as keyof typeof verdictConfig];
                 const VerdictIcon = config.icon;
+                const isSelected = selectedId === conn.id;
 
                 return (
                   <div
                     key={conn.id}
-                    className="rounded-md border border-border bg-card p-4 space-y-2"
+                    className={cn(
+                      "rounded-md border border-border bg-card p-4 space-y-2 transition-colors",
+                      onSelect && "cursor-pointer hover:bg-muted/60",
+                      isSelected && "border-primary bg-primary/5 ring-1 ring-primary/30"
+                    )}
                     data-testid={`connection-${conn.id}`}
+                    onClick={() => onSelect?.(conn)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm font-mono">

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,6 +42,7 @@ interface SimulationFormProps {
   devices: Device[];
   onSubmit: (data: SimulationFormValues) => void;
   isPending: boolean;
+  defaultValues?: { userId: string; deviceId: string; action: string };
 }
 
 export function SimulationForm({
@@ -50,6 +52,7 @@ export function SimulationForm({
   devices,
   onSubmit,
   isPending,
+  defaultValues,
 }: SimulationFormProps) {
   const form = useForm<SimulationFormValues>({
     resolver: zodResolver(simulationFormSchema),
@@ -59,6 +62,15 @@ export function SimulationForm({
       action: "",
     },
   });
+
+  // Populate form when a scenario pre-fills default values
+  useEffect(() => {
+    if (open && defaultValues) {
+      form.reset(defaultValues);
+    } else if (!open) {
+      form.reset({ userId: "", deviceId: "", action: "" });
+    }
+  }, [open, defaultValues, form]);
 
   const handleSubmit = (data: SimulationFormValues) => {
     onSubmit(data);

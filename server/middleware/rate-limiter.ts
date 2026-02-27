@@ -1,16 +1,25 @@
 import type { Request, Response, NextFunction } from 'express';
 
-interface RateLimitStore {
-  [key: string]: {
-    count: number;
-    resetTime: number;
-  };
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
 }
-
-const store: RateLimitStore = {};
 
 // Simple in-memory rate limiter
 export function createRateLimiter(windowMs: number, max: number) {
+  // Each limiter instance gets its own store so limits don't bleed across limiters
+  const store: Record<string, RateLimitEntry> = {};
+
+  // Cleanup old entries periodically
+  setInterval(() => {
+    const now = Date.now();
+    for (const key of Object.keys(store)) {
+      if (now > store[key].resetTime) {
+        delete store[key];
+      }
+    }
+  }, windowMs);
+
   return (req: Request, res: Response, next: NextFunction) => {
     const key = req.ip || 'unknown';
     const now = Date.now();
@@ -34,13 +43,3 @@ export function createRateLimiter(windowMs: number, max: number) {
     next();
   };
 }
-
-// Cleanup old entries periodically
-setInterval(() => {
-  const now = Date.now();
-  Object.keys(store).forEach((key) => {
-    if (now > store[key].resetTime) {
-      delete store[key];
-    }
-  });
-}, 60000); // Clean up every minute

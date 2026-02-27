@@ -53,7 +53,7 @@ export class MemStorage implements IStorage {
     this.initializeSampleData();
   }
 
-  private async initializeSampleData() {
+  private initializeSampleData() {
     const sampleUsers: InsertUser[] = [
       { id: "U1-Admin", role: "Admin", mfaEnabled: true },
       { id: "U2-Engineer", role: "Engineer", mfaEnabled: true },
@@ -77,15 +77,19 @@ export class MemStorage implements IStorage {
     ];
 
     for (const user of sampleUsers) {
-      await this.createUser(user);
+      const newUser: User = { ...user, mfaEnabled: user.mfaEnabled ?? false };
+      this.users.set(newUser.id, newUser);
     }
 
     for (const device of sampleDevices) {
-      await this.createDevice(device);
+      const newDevice: Device = { ...device, verified: device.verified ?? false };
+      this.devices.set(newDevice.id, newDevice);
     }
 
     for (const policy of samplePolicies) {
-      await this.createPolicy(policy);
+      const id = randomUUID();
+      const newPolicy: Policy = { ...policy, id, enabled: policy.enabled ?? true };
+      this.policies.set(id, newPolicy);
     }
   }
 
@@ -190,14 +194,19 @@ export class MemStorage implements IStorage {
 
 export class DbStorage implements IStorage {
   private db;
+  private client;
 
   constructor() {
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {
       throw new Error("DATABASE_URL environment variable is not set");
     }
-    const client = postgres(databaseUrl);
-    this.db = drizzle(client);
+    this.client = postgres(databaseUrl);
+    this.db = drizzle(this.client);
+  }
+
+  async close(): Promise<void> {
+    await this.client.end();
   }
 
   async getUsers(): Promise<User[]> {
@@ -294,7 +303,14 @@ export class DbStorage implements IStorage {
   }
 }
 
-// Use DbStorage for production, fallback to MemStorage if DATABASE_URL is not set
-export const storage = process.env.DATABASE_URL && process.env.NODE_ENV === 'production'
+// Use DbStorage when DATABASE_URL is set, otherwise fall back to in-memory storage
+export const storage: IStorage = process.env.DATABASE_URL
   ? new DbStorage()
   : new MemStorage();
+
+// Gracefully close the DB connection pool on process exit
+process.on("SIGTERM", async () => {
+  if (storage instanceof DbStorage) {
+    await storage.close();
+  }
+});

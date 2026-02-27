@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Shield, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
+import {
+  Shield,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
   Check,
   ShieldAlert,
   Lock,
@@ -46,20 +46,20 @@ export function TrustScoreDisplay({ evaluation }: TrustScoreDisplayProps) {
 
   const verdictConfig = {
     ALLOW: {
-      color: "bg-green-500 dark:bg-green-600",
-      textColor: "text-green-700 dark:text-green-300",
+      color: "bg-status-allow",
+      textColor: "text-status-allow",
       icon: CheckCircle2,
       label: "ALLOW",
     },
     CHALLENGE_MFA: {
-      color: "bg-orange-500 dark:bg-orange-600",
-      textColor: "text-orange-700 dark:text-orange-300",
+      color: "bg-status-challenge",
+      textColor: "text-status-challenge",
       icon: AlertTriangle,
       label: "CHALLENGE",
     },
     DENY: {
-      color: "bg-red-500 dark:bg-red-600",
-      textColor: "text-red-700 dark:text-red-300",
+      color: "bg-status-deny",
+      textColor: "text-status-deny",
       icon: XCircle,
       label: "DENY",
     },
@@ -134,7 +134,7 @@ export function TrustScoreDisplay({ evaluation }: TrustScoreDisplayProps) {
                   </div>
                   <span
                     className={`text-sm font-mono font-semibold ${
-                      item.points < 0 ? "text-red-500" : "text-muted-foreground"
+                      item.points < 0 ? "text-status-deny" : "text-muted-foreground"
                     }`}
                   >
                     {item.points > 0 ? "+" : ""}

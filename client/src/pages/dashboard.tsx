@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Play, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Play, RefreshCw, Activity, Shield, BarChart3, Network } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { MetricCard } from "@/components/metric-card";
 import { NetworkGraphVisualization } from "@/components/network-graph";
 import { TrustScoreDisplay } from "@/components/trust-score-display";
-import { PolicyControls } from "@/components/policy-controls";
 import { ConnectionHistory } from "@/components/connection-history";
 import { SimulationForm } from "@/components/simulation-form";
 import { MFAChallengeDialog } from "@/components/mfa-challenge-dialog";
@@ -29,27 +31,62 @@ export default function Dashboard() {
   const [currentConnectionId, setCurrentConnectionId] = useState<string | null>(null);
   const [currentEvaluation, setCurrentEvaluation] = useState<TrustEvaluation | null>(null);
   const [networkGraph, setNetworkGraph] = useState<NetworkGraph>({ nodes: [], edges: [] });
+  const [pendingScenario, setPendingScenario] = useState<{
+    userId: string;
+    deviceId: string;
+    action: string;
+  } | null>(null);
+  const [activeTab, setActiveTab] = useState("network");
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
+  const [latestEdgeKey, setLatestEdgeKey] = useState<string | undefined>(undefined);
 
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-  });
+  // Read sessionStorage signals from TopNav / Scenario Library
+  useEffect(() => {
+    try {
+      const openSim = sessionStorage.getItem("open-simulation");
+      if (openSim) {
+        sessionStorage.removeItem("open-simulation");
+        setSimulationOpen(true);
+      }
 
-  const { data: devices = [] } = useQuery<Device[]>({
-    queryKey: ["/api/devices"],
-  });
+      const scenario = sessionStorage.getItem("pending-scenario");
+      if (scenario) {
+        sessionStorage.removeItem("pending-scenario");
+        const parsed = JSON.parse(scenario) as { userId: string; deviceId: string; action: string };
+        setPendingScenario(parsed);
+        setSimulationOpen(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
-  const { data: connections = [] } = useQuery<Connection[]>({
-    queryKey: ["/api/connections"],
-  });
-
-  const { data: policies = [] } = useQuery<Policy[]>({
-    queryKey: ["/api/policies"],
-  });
-
+  const { data: users = [] } = useQuery<User[]>({ queryKey: ["/api/users"] });
+  const { data: devices = [] } = useQuery<Device[]>({ queryKey: ["/api/devices"] });
+  const { data: connections = [] } = useQuery<Connection[]>({ queryKey: ["/api/connections"] });
+  const { data: policies = [] } = useQuery<Policy[]>({ queryKey: ["/api/policies"] });
   const { data: graph } = useQuery<NetworkGraph>({
     queryKey: ["/api/network/graph"],
     enabled: connections.length > 0,
   });
+
+  // Feature 3: replay evaluation for a selected connection from history
+  const { data: replayEvaluation } = useQuery<TrustEvaluation>({
+    queryKey: ["/api/connections", selectedConnectionId, "evaluation"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/connections/${selectedConnectionId}/evaluation`);
+      return res.json() as Promise<TrustEvaluation>;
+    },
+    enabled: !!selectedConnectionId,
+    staleTime: 30_000,
+  });
+
+  // When replay evaluation arrives, display it
+  useEffect(() => {
+    if (replayEvaluation) {
+      setCurrentEvaluation(replayEvaluation);
+    }
+  }, [replayEvaluation]);
 
   const simulateMutation = useMutation({
     mutationFn: async (data: { userId: string; deviceId: string; action: string }) => {
@@ -59,9 +96,13 @@ export default function Dashboard() {
     onSuccess: (data) => {
       setCurrentEvaluation(data.evaluation);
       setNetworkGraph(data.graph);
+      setPendingScenario(null);
+      setSelectedConnectionId(null);
+      setLatestEdgeKey(`${data.connection.sourceId}-${data.connection.targetId}`);
       queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/network/graph"] });
-      
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+
       if (data.evaluation.verdict === "CHALLENGE_MFA") {
         setCurrentConnectionId(data.connection.id);
         setMfaDialogOpen(true);
@@ -95,20 +136,14 @@ export default function Dashboard() {
         code,
       });
       const result = await res.json() as { verified: boolean; connection: Connection };
-      
-      // Always invalidate queries to refresh the connection list
       queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/network/graph"] });
-      
-      if (!result.verified) {
-        throw new Error("Invalid verification code");
-      }
-      
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      if (!result.verified) throw new Error("Invalid verification code");
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       setMfaDialogOpen(false);
-      
       toast({
         title: "MFA Verification Successful",
         description: "Access has been granted after MFA verification",
@@ -117,121 +152,183 @@ export default function Dashboard() {
     onError: (error: Error) => {
       toast({
         title: "MFA Verification Failed",
-        description: error.message === "Invalid verification code" 
-          ? "Invalid verification code - please try again"
-          : "An error occurred during verification",
+        description:
+          error.message === "Invalid verification code"
+            ? "Invalid verification code - please try again"
+            : "An error occurred during verification",
         variant: "destructive",
       });
     },
   });
 
-  const policyMutation = useMutation({
-    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/policies/${id}`, { enabled });
-      return await res.json() as Policy;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/policies"] });
-      toast({
-        title: "Policy Updated",
-        description: "Policy has been updated successfully",
-      });
-    },
-  });
-
   const resetMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", "/api/network/reset", {});
-    },
+    mutationFn: async () => apiRequest("POST", "/api/network/reset", {}),
     onSuccess: () => {
       setCurrentEvaluation(null);
       setNetworkGraph({ nodes: [], edges: [] });
+      setSelectedConnectionId(null);
+      setLatestEdgeKey(undefined);
       queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/network/graph"] });
-      toast({
-        title: "Network Reset",
-        description: "All connections have been cleared",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      toast({ title: "Network Reset", description: "All connections have been cleared" });
     },
   });
 
-  const displayGraph = graph || networkGraph || { nodes: [], edges: [] };
+  // Feature 3: clicking a history row → load its evaluation and show Network tab
+  const handleConnectionSelect = (conn: Connection) => {
+    if (selectedConnectionId === conn.id) {
+      // Deselect
+      setSelectedConnectionId(null);
+      setCurrentEvaluation(null);
+    } else {
+      setSelectedConnectionId(conn.id);
+      setActiveTab("network");
+    }
+  };
+
+  const displayGraph = graph || networkGraph;
+  const activePolicies = policies.filter((p) => p.enabled).length;
+  const allowCount = connections.filter((c) => c.verdict === "ALLOW").length;
+  const allowRate =
+    connections.length > 0
+      ? Math.round((allowCount / connections.length) * 100)
+      : 0;
+  const avgTrustScore =
+    connections.length > 0
+      ? Math.round(connections.reduce((sum, c) => sum + c.trustScore, 0) / connections.length)
+      : 0;
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Monitor and simulate Zero Trust network security
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => resetMutation.mutate()}
-              disabled={resetMutation.isPending}
-              data-testid="button-reset-network"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
-            <Button
-              onClick={() => setSimulationOpen(true)}
-              data-testid="button-run-simulation"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Run Simulation
-            </Button>
-          </div>
-        </div>
+      <PageHeader
+        title="Dashboard"
+        description="Monitor and simulate Zero Trust network security"
+        right={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => resetMutation.mutate()}
+            disabled={resetMutation.isPending}
+            data-testid="button-reset-network"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reset
+          </Button>
+        }
+      />
+
+      {/* Metric cards */}
+      <div className="grid grid-cols-2 gap-3 p-4 pb-0 lg:grid-cols-4">
+        <MetricCard
+          label="Total Connections"
+          value={connections.length}
+          icon={<Activity className="h-5 w-5" />}
+          sub="access attempts"
+        />
+        <MetricCard
+          label="Avg Trust Score"
+          value={connections.length > 0 ? `${avgTrustScore}/100` : "—"}
+          icon={<Shield className="h-5 w-5" />}
+          sub="across all sims"
+          accent={
+            connections.length === 0
+              ? "neutral"
+              : avgTrustScore >= 70
+              ? "allow"
+              : avgTrustScore >= 40
+              ? "challenge"
+              : "deny"
+          }
+        />
+        <MetricCard
+          label="Allow Rate"
+          value={connections.length > 0 ? `${allowRate}%` : "—"}
+          icon={<BarChart3 className="h-5 w-5" />}
+          sub="verdicts allowed"
+          accent={connections.length === 0 ? "neutral" : allowRate >= 70 ? "allow" : allowRate >= 40 ? "challenge" : "deny"}
+        />
+        <MetricCard
+          label="Active Policies"
+          value={`${activePolicies} / ${policies.length}`}
+          icon={<Shield className="h-5 w-5" />}
+          sub="enforcement rules"
+          accent={activePolicies > 0 ? "allow" : "deny"}
+        />
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 p-6 network-graph-container">
-          <Card className="h-full">
-            <CardContent className="p-6 h-full">
-              {displayGraph?.nodes?.length > 0 ? (
-                <NetworkGraphVisualization data={displayGraph} />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      No network activity yet
-                    </p>
-                    <Button onClick={() => setSimulationOpen(true)}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Run Your First Simulation
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      {/* Tabs */}
+      <div className="flex-1 overflow-hidden p-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
+          <TabsList className="mb-3 w-fit">
+            <TabsTrigger value="network" className="gap-2">
+              <Network className="h-4 w-4" />
+              Network
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="gap-2">
+              <Activity className="h-4 w-4" />
+              Activity
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="w-[400px] border-l border-border bg-muted/30 p-6 overflow-y-auto">
-          <div className="space-y-6">
-            <TrustScoreDisplay evaluation={currentEvaluation} />
-            <PolicyControls
-              policies={policies}
-              onPolicyToggle={(id, enabled) => policyMutation.mutate({ id, enabled })}
-            />
-            <div className="connection-history-container">
-              <ConnectionHistory connections={connections} />
+          <TabsContent value="network" className="flex-1 overflow-hidden mt-0">
+            <div className="flex h-full gap-4 overflow-hidden">
+              {/* Graph */}
+              <div className="flex-1 overflow-hidden network-graph-container">
+                <Card className="h-full">
+                  <CardContent className="p-4 h-full">
+                    {displayGraph?.nodes?.length > 0 ? (
+                      <NetworkGraphVisualization
+                        data={displayGraph}
+                        latestEdgeKey={latestEdgeKey}
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground mb-4">
+                            No network activity yet
+                          </p>
+                          <Button onClick={() => setSimulationOpen(true)}>
+                            <Play className="h-4 w-4 mr-2" />
+                            Run Your First Simulation
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              {/* Trust score sidebar */}
+              <div className="w-80 shrink-0 overflow-y-auto">
+                <TrustScoreDisplay evaluation={currentEvaluation} />
+              </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="activity" className="flex-1 overflow-hidden mt-0">
+            <div className="connection-history-container h-full overflow-y-auto">
+              <ConnectionHistory
+                connections={connections}
+                scrollHeight="h-[calc(100vh-20rem)]"
+                selectedId={selectedConnectionId}
+                onSelect={handleConnectionSelect}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <SimulationForm
         open={simulationOpen}
-        onOpenChange={setSimulationOpen}
+        onOpenChange={(open) => {
+          setSimulationOpen(open);
+          if (!open) setPendingScenario(null);
+        }}
         users={users}
         devices={devices}
         onSubmit={(data) => simulateMutation.mutate(data)}
         isPending={simulateMutation.isPending}
+        defaultValues={pendingScenario ?? undefined}
       />
 
       <MFAChallengeDialog

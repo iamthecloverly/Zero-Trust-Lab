@@ -13,6 +13,24 @@ const mfaLimiter = createRateLimiter(60000, 10); // 10 MFA attempts per minute
 export async function registerRoutes(app: Express): Promise<Server> {
   // Apply general rate limiting to all API routes
   app.use('/api', generalLimiter);
+
+  // Helper: build network graph from current state
+  async function buildCurrentNetworkGraph() {
+    const users = await storage.getUsers();
+    const devices = await storage.getDevices();
+    const connections = await storage.getConnections();
+    return policyEngine.buildNetworkGraph(
+      users,
+      devices,
+      connections.map((c) => ({
+        sourceId: c.sourceId,
+        targetId: c.targetId,
+        verdict: c.verdict,
+        trustScore: c.trustScore,
+      }))
+    );
+  }
+
   app.get("/api/users", async (_req, res) => {
     try {
       const users = await storage.getUsers();
@@ -109,20 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trustScore: evaluation.trustScore,
       });
 
-      const users = await storage.getUsers();
-      const devices = await storage.getDevices();
-      const connections = await storage.getConnections();
-
-      const graph = policyEngine.buildNetworkGraph(
-        users,
-        devices,
-        connections.map((c) => ({
-          sourceId: c.sourceId,
-          targetId: c.targetId,
-          verdict: c.verdict,
-          trustScore: c.trustScore,
-        }))
-      );
+      const graph = await buildCurrentNetworkGraph();
 
       const response: SimulationResponse = {
         connection,
@@ -139,21 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/network/graph", async (_req, res) => {
     try {
-      const users = await storage.getUsers();
-      const devices = await storage.getDevices();
-      const connections = await storage.getConnections();
-
-      const graph = policyEngine.buildNetworkGraph(
-        users,
-        devices,
-        connections.map((c) => ({
-          sourceId: c.sourceId,
-          targetId: c.targetId,
-          verdict: c.verdict,
-          trustScore: c.trustScore,
-        }))
-      );
-
+      const graph = await buildCurrentNetworkGraph();
       res.json(graph);
     } catch (error) {
       console.error('Error building network graph:', error);
@@ -168,6 +159,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error resetting network:', error);
       res.status(500).json({ error: 'Internal server error resetting network' });
+    }
+  });
+
+  app.get("/api/policies/:id", async (req, res) => {
+    try {
+      const policies = await storage.getPolicies();
+      const policy = policies.find((p) => p.id === req.params.id);
+      if (!policy) return res.status(404).json({ error: "Policy not found" });
+      res.json(policy);
+    } catch (error) {
+      console.error('Error fetching policy:', error);
+      res.status(500).json({ error: 'Internal server error fetching policy' });
+    }
+  });
+
+  app.get("/api/analytics", async (_req, res) => {
+    try {
+      const [connections, users, devices, policies] = await Promise.all([
+        storage.getConnections(),
+        storage.getUsers(),
+        storage.getDevices(),
+        storage.getPolicies(),
+      ]);
+
+      const total = connections.length;
+      const allowCount = connections.filter((c) => c.verdict === "ALLOW").length;
+      const denyCount = connections.filter((c) => c.verdict === "DENY").length;
+      const challengeCount = connections.filter((c) => c.verdict === "CHALLENGE_MFA").length;
+
+      const avgTrustScore =
+        total > 0
+          ? Math.round(connections.reduce((sum, c) => sum + c.trustScore, 0) / total)
+          : 0;
+
+      const distribution = [
+        { range: "0–39 (Deny)",       count: connections.filter((c) => c.trustScore <= 39).length },
+        { range: "40–69 (Challenge)",  count: connections.filter((c) => c.trustScore >= 40 && c.trustScore <= 69).length },
+        { range: "70–100 (Allow)",     count: connections.filter((c) => c.trustScore >= 70).length },
+      ];
+
+      const userMap   = new Map(users.map((u) => [u.id, u]));
+      const deviceMap = new Map(devices.map((d) => [d.id, d]));
+      const activePolicies = policies.filter((p) => p.enabled);
+
+      const policyViolations = [
+        { policyType: "mfa"    as const, violationCount: 0 },
+        { policyType: "device" as const, violationCount: 0 },
+        { policyType: "geo"    as const, violationCount: 0 },
+        { policyType: "role"   as const, violationCount: 0 },
+      ];
+
+      for (const conn of connections) {
+        const user   = userMap.get(conn.sourceId);
+        const device = deviceMap.get(conn.targetId);
+        if (!user || !device) continue;
+        if (activePolicies.some((p) => p.type === "mfa")    && !user.mfaEnabled)                               policyViolations[0].violationCount++;
+        if (activePolicies.some((p) => p.type === "device") && !device.verified)                               policyViolations[1].violationCount++;
+        if (activePolicies.some((p) => p.type === "geo")    && !["US", "CA"].includes(device.location))        policyViolations[2].violationCount++;
+        if (activePolicies.some((p) => p.type === "role")   && device.type === "Server" && user.role !== "Admin") policyViolations[3].violationCount++;
+      }
+
+      const recentTrend = [...connections]
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .slice(-5)
+        .map((c) => ({
+          id: c.id, sourceId: c.sourceId, targetId: c.targetId,
+          verdict: c.verdict, trustScore: c.trustScore, timestamp: c.timestamp, action: c.action,
+        }));
+
+      res.json({
+        totalConnections: total,
+        allowCount,
+        denyCount,
+        challengeCount,
+        allowRate:     total > 0 ? Math.round((allowCount     / total) * 100) : 0,
+        denyRate:      total > 0 ? Math.round((denyCount      / total) * 100) : 0,
+        challengeRate: total > 0 ? Math.round((challengeCount / total) * 100) : 0,
+        avgTrustScore,
+        policyViolations,
+        trustScoreDistribution: distribution,
+        recentTrend,
+      });
+    } catch (error) {
+      console.error("Error computing analytics:", error);
+      res.status(500).json({ error: "Internal server error computing analytics" });
+    }
+  });
+
+  // Re-evaluate a past connection with current policies (for history replay)
+  app.get("/api/connections/:id/evaluation", async (req, res) => {
+    try {
+      const connection = await storage.getConnection(req.params.id);
+      if (!connection) return res.status(404).json({ error: "Connection not found" });
+
+      const user = await storage.getUser(connection.sourceId);
+      const device = await storage.getDevice(connection.targetId);
+      if (!user || !device) return res.status(404).json({ error: "User or device not found" });
+
+      const policies = await storage.getPolicies();
+      const evaluation = policyEngine.evaluateConnection(user, device, connection.action, policies);
+      res.json(evaluation);
+    } catch (error) {
+      console.error("Error replaying evaluation:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -198,8 +293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "MFA not required for this connection" });
       }
 
-      // In production, this should verify against a real MFA service
-      // For demo purposes, accepting "123456" or "000000"
+      // Demo mode: accept well-known codes for demonstration purposes.
+      // In a real deployment, replace this with a TOTP/HOTP library or external MFA provider.
       const verified = code === "123456" || code === "000000";
       const updated = await storage.updateConnectionMFA(connectionId, verified);
 

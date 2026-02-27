@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface MFAChallengeDialogProps {
   open: boolean;
-  onVerify: (code: string) => Promise<any>;
+  onVerify: (code: string) => Promise<unknown>;
   onCancel: () => void;
   isPending?: boolean;
 }
@@ -44,8 +44,9 @@ export function MFAChallengeDialog({
     try {
       await onVerify(code);
       setCode("");
-    } catch (err: any) {
-      setError(err.message || "Invalid verification code. Please try again.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Invalid verification code. Please try again.";
+      setError(message);
       setCode("");
     } finally {
       setIsSubmitting(false);
@@ -100,7 +101,7 @@ export function MFAChallengeDialog({
               <p className="text-xs text-muted-foreground">
                 Enter the 6-digit verification code from your authenticator app.
               </p>
-              <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
+              <div className="mt-2 p-2 bg-accent rounded text-xs">
                 <p className="text-muted-foreground">
                   💡 <strong>Demo Mode:</strong> Use code <code className="px-1 py-0.5 bg-background rounded">123456</code> or <code className="px-1 py-0.5 bg-background rounded">000000</code>
                 </p>
