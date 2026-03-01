@@ -52,9 +52,11 @@ export default function Dashboard() {
       const scenario = sessionStorage.getItem("pending-scenario");
       if (scenario) {
         sessionStorage.removeItem("pending-scenario");
-        const parsed = JSON.parse(scenario) as { userId: string; deviceId: string; action: string };
-        setPendingScenario(parsed);
-        setSimulationOpen(true);
+        const parsed = JSON.parse(scenario);
+        if (parsed && typeof parsed === "object" && typeof parsed.userId === "string" && typeof parsed.deviceId === "string" && typeof parsed.action === "string") {
+          setPendingScenario(parsed as { userId: string; deviceId: string; action: string });
+          setSimulationOpen(true);
+        }
       }
     } catch {
       // ignore

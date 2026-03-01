@@ -29,7 +29,7 @@ export function TopNav({ onRunSimulation }: TopNavProps) {
 
   const isLive = connections.length > 0;
   const totalViolations = analytics
-    ? analytics.policyViolations.reduce((sum, v) => sum + v.violationCount, 0)
+    ? analytics.policyViolations.filter((v) => v.violationCount > 0).length
     : 0;
 
   return (

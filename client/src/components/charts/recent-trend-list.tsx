@@ -36,7 +36,7 @@ export function RecentTrendList({ data }: RecentTrendListProps) {
   return (
     <ol className="space-y-3">
       {reversed.map((sim, idx) => {
-        const config = verdictConfig[sim.verdict];
+        const config = verdictConfig[sim.verdict] ?? verdictConfig["DENY"];
         const Icon = config.icon;
         return (
           <li key={sim.id} className="flex items-start gap-3">
@@ -58,7 +58,7 @@ export function RecentTrendList({ data }: RecentTrendListProps) {
                 <span>·</span>
                 <span className="font-mono">Score: {sim.trustScore}</span>
                 <span>·</span>
-                <span>{new Date(sim.timestamp).toLocaleTimeString()}</span>
+                <span>{(() => { const d = sim.timestamp ? new Date(sim.timestamp) : null; return d && !isNaN(d.getTime()) ? d.toLocaleTimeString() : "—"; })()}</span>
               </div>
             </div>
           </li>

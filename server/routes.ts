@@ -74,6 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/policies/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      if (id.length > 100) return res.status(400).json({ error: "Invalid id" });
       const { enabled } = req.body;
 
       if (typeof enabled !== "boolean") {
@@ -164,6 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/policies/:id", async (req, res) => {
     try {
+      if (req.params.id.length > 100) return res.status(400).json({ error: "Invalid id" });
       const policies = await storage.getPolicies();
       const policy = policies.find((p) => p.id === req.params.id);
       if (!policy) return res.status(404).json({ error: "Policy not found" });
@@ -250,6 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Re-evaluate a past connection with current policies (for history replay)
   app.get("/api/connections/:id/evaluation", async (req, res) => {
     try {
+      if (req.params.id.length > 100) return res.status(400).json({ error: "Invalid id" });
       const connection = await storage.getConnection(req.params.id);
       if (!connection) return res.status(404).json({ error: "Connection not found" });
 
@@ -293,9 +296,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "MFA not required for this connection" });
       }
 
-      // Demo mode: accept well-known codes for demonstration purposes.
+      // Demo mode: accept the well-known demo code for demonstration purposes.
       // In a real deployment, replace this with a TOTP/HOTP library or external MFA provider.
-      const verified = code === "123456" || code === "000000";
+      const verified = code === "123456";
       const updated = await storage.updateConnectionMFA(connectionId, verified);
 
       res.json({

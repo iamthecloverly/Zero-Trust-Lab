@@ -62,10 +62,12 @@ export class ZeroTrustPolicyEngine {
       });
     }
 
+    const finalScore = Math.max(0, trustScore);
+
     let verdict: TrustEvaluation["verdict"];
-    if (trustScore >= 70) {
+    if (finalScore >= 70) {
       verdict = "ALLOW";
-    } else if (trustScore >= 40) {
+    } else if (finalScore >= 40) {
       verdict = "CHALLENGE_MFA";
     } else {
       verdict = "DENY";
@@ -73,7 +75,7 @@ export class ZeroTrustPolicyEngine {
 
     return {
       verdict,
-      trustScore: Math.max(0, trustScore),
+      trustScore: finalScore,
       breakdown,
     };
   }

@@ -36,7 +36,7 @@ export function PolicyViolationsTable({ data, total }: PolicyViolationsTableProp
         <tbody>
           {sorted.map((row) => (
             <tr key={row.policyType} className="border-b border-border last:border-0">
-              <td className="px-4 py-3 font-medium">{POLICY_LABELS[row.policyType]}</td>
+              <td className="px-4 py-3 font-medium">{POLICY_LABELS[row.policyType] ?? row.policyType}</td>
               <td className="px-4 py-3 text-right tabular-nums">{row.violationCount}</td>
               <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                 {total > 0 ? Math.round((row.violationCount / total) * 100) : 0}%

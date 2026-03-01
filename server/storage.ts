@@ -153,10 +153,10 @@ export class MemStorage implements IStorage {
   async updateConnectionMFA(id: string, verified: boolean): Promise<Connection | undefined> {
     const connection = this.connections.get(id);
     if (!connection) return undefined;
-    
-    connection.mfaVerified = verified;
-    this.connections.set(id, connection);
-    return connection;
+
+    const updated: Connection = { ...connection, mfaVerified: verified };
+    this.connections.set(id, updated);
+    return { ...updated };
   }
 
   async clearConnections(): Promise<void> {
@@ -174,10 +174,10 @@ export class MemStorage implements IStorage {
   async updatePolicy(id: string, enabled: boolean): Promise<Policy | undefined> {
     const policy = this.policies.get(id);
     if (!policy) return undefined;
-    
-    policy.enabled = enabled;
-    this.policies.set(id, policy);
-    return policy;
+
+    const updated: Policy = { ...policy, enabled };
+    this.policies.set(id, updated);
+    return { ...updated };
   }
 
   async createPolicy(policy: InsertPolicy): Promise<Policy> {

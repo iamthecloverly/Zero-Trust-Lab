@@ -30,7 +30,7 @@ export function ScenarioCard({ scenario, onRun }: ScenarioCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [, navigate] = useLocation();
 
-  const verdict = verdictStyles[scenario.expectedVerdict];
+  const verdict = verdictStyles[scenario.expectedVerdict] ?? verdictStyles["DENY"];
 
   const handleRun = () => {
     if (onRun) {

@@ -10,7 +10,7 @@ export function createRateLimiter(windowMs: number, max: number) {
   // Each limiter instance gets its own store so limits don't bleed across limiters
   const store: Record<string, RateLimitEntry> = {};
 
-  // Cleanup old entries periodically
+  // Cleanup old entries periodically; unref so it doesn't prevent process exit
   setInterval(() => {
     const now = Date.now();
     for (const key of Object.keys(store)) {
@@ -18,7 +18,7 @@ export function createRateLimiter(windowMs: number, max: number) {
         delete store[key];
       }
     }
-  }, windowMs);
+  }, windowMs).unref();
 
   return (req: Request, res: Response, next: NextFunction) => {
     const key = req.ip || 'unknown';
@@ -34,7 +34,7 @@ export function createRateLimiter(windowMs: number, max: number) {
 
     store[key].count++;
 
-    if (store[key].count > max) {
+    if (store[key].count >= max) {
       return res.status(429).json({
         error: 'Too many requests, please try again later',
       });

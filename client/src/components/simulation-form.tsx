@@ -70,7 +70,7 @@ export function SimulationForm({
     } else if (!open) {
       form.reset({ userId: "", deviceId: "", action: "" });
     }
-  }, [open, defaultValues, form]);
+  }, [open, defaultValues, form.reset]);
 
   const handleSubmit = (data: SimulationFormValues) => {
     onSubmit(data);

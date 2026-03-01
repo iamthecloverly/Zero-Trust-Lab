@@ -72,7 +72,7 @@ export function ConnectionHistory({
               .slice()
               .reverse()
               .map((conn) => {
-                const config = verdictConfig[conn.verdict as keyof typeof verdictConfig];
+                const config = verdictConfig[conn.verdict as keyof typeof verdictConfig] ?? verdictConfig["DENY"];
                 const VerdictIcon = config.icon;
                 const isSelected = selectedId === conn.id;
 
