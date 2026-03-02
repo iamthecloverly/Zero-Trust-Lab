@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === v2.2 LIGHT MODE — Neon Violet (Cyberpunk) Palette === */
+/* === v2.1 LIGHT MODE — Clean SaaS Palette === */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -11,55 +11,55 @@
   --elevate-2: rgba(0,0,0, .07);
 
   /* Surfaces */
-  --background: 270 30% 98%;
-  --foreground: 270 25% 10%;
-  --border: 270 20% 84%;
-  --card: 270 25% 100%;
-  --card-foreground: 270 25% 10%;
-  --card-border: 270 20% 88%;
+  --background: 0 0% 98%;
+  --foreground: 224 30% 8%;
+  --border: 220 13% 86%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 30% 8%;
+  --card-border: 220 13% 89%;
 
   /* Sidebar tokens (kept for shadcn/ui component compatibility) */
-  --sidebar: 270 25% 12%;
-  --sidebar-foreground: 270 15% 94%;
-  --sidebar-border: 270 22% 18%;
-  --sidebar-primary: 271 85% 55%;
+  --sidebar: 224 30% 10%;
+  --sidebar-foreground: 220 15% 94%;
+  --sidebar-border: 224 22% 16%;
+  --sidebar-primary: 243 75% 59%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 270 22% 18%;
-  --sidebar-accent-foreground: 270 15% 94%;
-  --sidebar-ring: 271 85% 55%;
+  --sidebar-accent: 224 22% 16%;
+  --sidebar-accent-foreground: 220 15% 94%;
+  --sidebar-ring: 243 75% 59%;
 
   /* Popovers */
-  --popover: 270 25% 100%;
-  --popover-foreground: 270 25% 10%;
-  --popover-border: 270 20% 84%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 30% 8%;
+  --popover-border: 220 13% 86%;
 
-  /* PRIMARY — Vivid Violet */
-  --primary: 271 85% 55%;
+  /* PRIMARY — Indigo */
+  --primary: 243 75% 59%;
   --primary-foreground: 0 0% 100%;
 
-  /* SECONDARY — Soft purple */
-  --secondary: 270 18% 91%;
-  --secondary-foreground: 270 25% 14%;
+  /* SECONDARY — Slate */
+  --secondary: 220 14% 91%;
+  --secondary-foreground: 224 25% 12%;
 
   /* Muted */
-  --muted: 270 18% 95%;
-  --muted-foreground: 270 12% 44%;
+  --muted: 220 14% 95%;
+  --muted-foreground: 220 12% 44%;
 
-  /* Accent — Light Cyan tint */
-  --accent: 189 65% 93%;
-  --accent-foreground: 189 80% 22%;
+  /* Accent — Violet tint */
+  --accent: 256 60% 95%;
+  --accent-foreground: 256 50% 28%;
 
   /* Destructive */
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
   /* Input / Ring */
-  --input: 270 16% 72%;
-  --ring: 271 85% 55%;
+  --input: 220 13% 72%;
+  --ring: 243 75% 59%;
 
   /* Chart */
-  --chart-1: 271 85% 55%;
-  --chart-2: 189 75% 42%;
+  --chart-1: 243 75% 59%;
+  --chart-2: 256 68% 65%;
   --chart-3: 142 71% 45%;
   --chart-4: 38 92% 50%;
   --chart-5: 0 72% 51%;
@@ -91,14 +91,14 @@
   --spacing: 0.25rem;
 
   /* Shadows */
-  --shadow-2xs: 0px 1px 2px 0px hsl(270 25% 6% / 0.05);
-  --shadow-xs:  0px 1px 3px 0px hsl(270 25% 6% / 0.07);
-  --shadow-sm:  0px 2px 6px -1px hsl(270 25% 6% / 0.09);
-  --shadow:     0px 4px 10px -2px hsl(270 25% 6% / 0.11);
-  --shadow-md:  0px 6px 14px -2px hsl(270 25% 6% / 0.13);
-  --shadow-lg:  0px 10px 22px -4px hsl(270 25% 6% / 0.16);
-  --shadow-xl:  0px 16px 36px -6px hsl(270 25% 6% / 0.20);
-  --shadow-2xl: 0px 24px 52px -8px hsl(270 25% 6% / 0.25);
+  --shadow-2xs: 0px 1px 2px 0px hsl(224 25% 6% / 0.05);
+  --shadow-xs:  0px 1px 3px 0px hsl(224 25% 6% / 0.07);
+  --shadow-sm:  0px 2px 6px -1px hsl(224 25% 6% / 0.09);
+  --shadow:     0px 4px 10px -2px hsl(224 25% 6% / 0.11);
+  --shadow-md:  0px 6px 14px -2px hsl(224 25% 6% / 0.13);
+  --shadow-lg:  0px 10px 22px -4px hsl(224 25% 6% / 0.16);
+  --shadow-xl:  0px 16px 36px -6px hsl(224 25% 6% / 0.20);
+  --shadow-2xl: 0px 24px 52px -8px hsl(224 25% 6% / 0.25);
 
   /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -123,7 +123,7 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
-/* === v2.2 DARK MODE — Neon Violet (Cyberpunk) === */
+/* === v2.1 DARK MODE — Neutral Dark (easy on eyes) === */
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
@@ -131,56 +131,56 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .08);
 
-  /* Surfaces — purple-black cyberpunk */
-  --background: 270 20% 6%;
-  --foreground: 270 15% 94%;
-  --border: 270 15% 20%;
-  --card: 270 18% 9%;
-  --card-foreground: 270 15% 94%;
-  --card-border: 270 15% 16%;
+  /* Surfaces — neutral dark (warm-neutral, not cold navy) */
+  --background: 220 9% 9%;
+  --foreground: 213 20% 95%;
+  --border: 220 9% 20%;
+  --card: 220 9% 12%;
+  --card-foreground: 213 20% 95%;
+  --card-border: 220 9% 18%;
 
   /* Sidebar tokens (kept for shadcn/ui component compatibility) */
-  --sidebar: 270 18% 8%;
-  --sidebar-foreground: 270 12% 92%;
-  --sidebar-border: 270 15% 17%;
-  --sidebar-primary: 271 92% 68%;
+  --sidebar: 220 9% 10%;
+  --sidebar-foreground: 213 20% 92%;
+  --sidebar-border: 220 9% 17%;
+  --sidebar-primary: 243 80% 68%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 270 15% 15%;
-  --sidebar-accent-foreground: 270 12% 92%;
-  --sidebar-ring: 271 92% 68%;
+  --sidebar-accent: 220 9% 16%;
+  --sidebar-accent-foreground: 213 20% 92%;
+  --sidebar-ring: 243 80% 68%;
 
   /* Popovers */
-  --popover: 270 18% 9%;
-  --popover-foreground: 270 15% 94%;
-  --popover-border: 270 15% 20%;
+  --popover: 220 9% 12%;
+  --popover-foreground: 213 20% 95%;
+  --popover-border: 220 9% 20%;
 
-  /* PRIMARY — Vivid Violet (vibrant on dark) */
-  --primary: 271 92% 68%;
+  /* PRIMARY — Indigo (vibrant on dark) */
+  --primary: 243 82% 68%;
   --primary-foreground: 0 0% 100%;
 
   /* SECONDARY */
-  --secondary: 270 15% 17%;
-  --secondary-foreground: 270 12% 88%;
+  --secondary: 220 9% 17%;
+  --secondary-foreground: 213 20% 88%;
 
   /* Muted */
-  --muted: 270 15% 11%;
-  --muted-foreground: 270 8% 60%;
+  --muted: 220 9% 14%;
+  --muted-foreground: 220 10% 63%;
 
-  /* Accent — Deep Cyan (cyberpunk dual-tone) */
-  --accent: 189 55% 18%;
-  --accent-foreground: 189 85% 65%;
+  /* Accent — Violet tint */
+  --accent: 256 38% 20%;
+  --accent-foreground: 256 75% 82%;
 
   /* Destructive */
   --destructive: 0 70% 56%;
   --destructive-foreground: 0 0% 100%;
 
   /* Input / Ring */
-  --input: 270 12% 28%;
-  --ring: 271 92% 68%;
+  --input: 220 9% 28%;
+  --ring: 243 82% 68%;
 
   /* Chart */
-  --chart-1: 271 92% 72%;
-  --chart-2: 189 85% 55%;
+  --chart-1: 243 82% 70%;
+  --chart-2: 256 70% 74%;
   --chart-3: 142 65% 56%;
   --chart-4: 36 90% 60%;
   --chart-5: 0 70% 63%;
@@ -198,18 +198,18 @@
   --status-deny-foreground: 0 0% 100%;
   --status-deny-subtle: 0 42% 14%;
 
-  --status-neutral: 270 8% 55%;
-  --status-neutral-subtle: 270 12% 14%;
+  --status-neutral: 220 10% 55%;
+  --status-neutral-subtle: 220 9% 15%;
 
-  /* Shadows — purple-tinted */
-  --shadow-2xs: 0px 1px 2px 0px hsl(270 16% 3% / 0.35);
-  --shadow-xs:  0px 1px 4px 0px hsl(270 16% 3% / 0.45);
-  --shadow-sm:  0px 2px 6px -1px hsl(270 16% 3% / 0.55);
-  --shadow:     0px 4px 10px -2px hsl(270 16% 3% / 0.60);
-  --shadow-md:  0px 6px 14px -2px hsl(270 16% 3% / 0.65);
-  --shadow-lg:  0px 10px 22px -4px hsl(270 16% 3% / 0.70);
-  --shadow-xl:  0px 16px 36px -6px hsl(270 16% 3% / 0.75);
-  --shadow-2xl: 0px 24px 52px -8px hsl(270 16% 3% / 0.80);
+  /* Shadows */
+  --shadow-2xs: 0px 1px 2px 0px hsl(220 16% 3% / 0.35);
+  --shadow-xs:  0px 1px 4px 0px hsl(220 16% 3% / 0.45);
+  --shadow-sm:  0px 2px 6px -1px hsl(220 16% 3% / 0.55);
+  --shadow:     0px 4px 10px -2px hsl(220 16% 3% / 0.60);
+  --shadow-md:  0px 6px 14px -2px hsl(220 16% 3% / 0.65);
+  --shadow-lg:  0px 10px 22px -4px hsl(220 16% 3% / 0.70);
+  --shadow-xl:  0px 16px 36px -6px hsl(220 16% 3% / 0.75);
+  --shadow-2xl: 0px 24px 52px -8px hsl(220 16% 3% / 0.80);
 
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
