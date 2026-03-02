@@ -107,6 +107,8 @@ export default function Dashboard() {
 
       if (data.evaluation.verdict === "CHALLENGE_MFA") {
         setCurrentConnectionId(data.connection.id);
+        // Store connection data in sessionStorage to handle serverless function restarts
+        sessionStorage.setItem("mfa-pending-connection", JSON.stringify(data.connection));
         setMfaDialogOpen(true);
         setSimulationOpen(false);
         toast({
@@ -133,11 +135,30 @@ export default function Dashboard() {
   const mfaVerifyMutation = useMutation({
     mutationFn: async (code: string) => {
       if (!currentConnectionId) throw new Error("No connection ID");
+      
+      // Retrieve stored connection data to handle serverless restarts
+      const storedConnection = sessionStorage.getItem("mfa-pending-connection");
+      const connection = storedConnection ? JSON.parse(storedConnection) : null;
+      
       const res = await apiRequest("POST", "/api/verify-mfa", {
         connectionId: currentConnectionId,
         code,
+        connection, // Send connection data for serverless recovery
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        if (res.status === 404) {
+          throw new Error("Connection expired");
+        }
+        throw new Error(errorData.error || "Verification failed");
+      }
+      
       const result = await res.json() as { verified: boolean; connection: Connection };
+      
+      // Clear stored connection after successful verification
+      sessionStorage.removeItem("mfa-pending-connection");
+      
       queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/network/graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
@@ -152,14 +173,25 @@ export default function Dashboard() {
       });
     },
     onError: (error: Error) => {
-      toast({
-        title: "MFA Verification Failed",
-        description:
-          error.message === "Invalid verification code"
-            ? "Invalid verification code - please try again"
-            : "An error occurred during verification",
-        variant: "destructive",
-      });
+      if (error.message === "Connection expired") {
+        setMfaDialogOpen(false);
+        sessionStorage.removeItem("mfa-pending-connection");
+        toast({
+          title: "Connection Expired",
+          description: "The connection session expired. Please run a new simulation.",
+          variant: "destructive",
+        });
+        setSimulationOpen(true);
+      } else {
+        toast({
+          title: "MFA Verification Failed",
+          description:
+            error.message === "Invalid verification code"
+              ? "Invalid verification code - please try again"
+              : "An error occurred during verification",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -338,6 +370,7 @@ export default function Dashboard() {
         onVerify={(code) => mfaVerifyMutation.mutateAsync(code)}
         onCancel={() => {
           setMfaDialogOpen(false);
+          sessionStorage.removeItem("mfa-pending-connection");
           toast({
             title: "MFA Cancelled",
             description: "Verification was cancelled - connection remains challenged",
