@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { ConnectionHistory } from "@/components/connection-history";
 import { SimulationForm } from "@/components/simulation-form";
 import { MFAChallengeDialog } from "@/components/mfa-challenge-dialog";
 import { ProductTour } from "@/components/product-tour";
+import { useSimulation } from "@/contexts/simulation-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type {
@@ -26,55 +27,26 @@ import type {
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const [simulationOpen, setSimulationOpen] = useState(false);
-  const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
-  const [currentConnectionId, setCurrentConnectionId] = useState<string | null>(null);
-  const [currentEvaluation, setCurrentEvaluation] = useState<TrustEvaluation | null>(null);
-  const [networkGraph, setNetworkGraph] = useState<NetworkGraph>({ nodes: [], edges: [] });
-  const [pendingScenario, setPendingScenario] = useState<{
-    userId: string;
-    deviceId: string;
-    action: string;
-  } | null>(null);
-  const [activeTab, setActiveTab] = useState("network");
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
-  const [latestEdgeKey, setLatestEdgeKey] = useState<string | undefined>(undefined);
-
-  // On mount: read sessionStorage signals written by TopNav / Scenario Library
-  // when navigating TO the dashboard from another page.
-  useEffect(() => {
-    try {
-      const openSim = sessionStorage.getItem("open-simulation");
-      if (openSim) {
-        sessionStorage.removeItem("open-simulation");
-        setSimulationOpen(true);
-      }
-
-      const scenario = sessionStorage.getItem("pending-scenario");
-      if (scenario) {
-        sessionStorage.removeItem("pending-scenario");
-        try {
-          const parsed = JSON.parse(scenario);
-          if (parsed && typeof parsed === "object" && typeof parsed.userId === "string" && typeof parsed.deviceId === "string" && typeof parsed.action === "string") {
-            setPendingScenario(parsed as { userId: string; deviceId: string; action: string });
-            setSimulationOpen(true);
-          }
-        } catch (e) {
-          console.warn("Failed to parse pending scenario from sessionStorage", e);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // When already on Dashboard, TopNav fires a custom event instead of navigating
-  // (navigation would be a no-op and the mount effect above would never re-run).
-  useEffect(() => {
-    const handleOpenSimulation = () => setSimulationOpen(true);
-    window.addEventListener("open-simulation", handleOpenSimulation);
-    return () => window.removeEventListener("open-simulation", handleOpenSimulation);
-  }, []);
+  const {
+    simulationOpen,
+    setSimulationOpen,
+    mfaDialogOpen,
+    setMfaDialogOpen,
+    currentConnectionId,
+    setCurrentConnectionId,
+    currentEvaluation,
+    setCurrentEvaluation,
+    networkGraph,
+    setNetworkGraph,
+    pendingScenario,
+    setPendingScenario,
+    activeTab,
+    setActiveTab,
+    selectedConnectionId,
+    setSelectedConnectionId,
+    latestEdgeKey,
+    setLatestEdgeKey,
+  } = useSimulation();
 
   const { data: users = [] } = useQuery<User[]>({ queryKey: ["/api/users"] });
   const { data: devices = [] } = useQuery<Device[]>({ queryKey: ["/api/devices"] });
@@ -88,8 +60,6 @@ export default function Dashboard() {
   const selectedConnection = connections.find((c) => c.id === selectedConnectionId) ?? null;
 
   // Replay evaluation for a selected connection from history.
-  // selectedConnection fields are in the key so the query re-runs when
-  // connections data arrives after selectedConnectionId is set.
   const { data: replayEvaluation } = useQuery<TrustEvaluation>({
     queryKey: [
       "/api/connections", selectedConnectionId, "evaluation",
@@ -97,13 +67,11 @@ export default function Dashboard() {
     ],
     queryFn: async () => {
       if (!selectedConnection) throw new Error("Connection not found");
-
       const params = new URLSearchParams({
         userId: selectedConnection.sourceId,
         deviceId: selectedConnection.targetId,
         action: selectedConnection.action,
       });
-
       const res = await apiRequest("GET", `/api/connections/${selectedConnectionId}/evaluation?${params}`);
       return res.json() as Promise<TrustEvaluation>;
     },
@@ -116,7 +84,7 @@ export default function Dashboard() {
     if (replayEvaluation) {
       setCurrentEvaluation(replayEvaluation);
     }
-  }, [replayEvaluation]);
+  }, [replayEvaluation, setCurrentEvaluation]);
 
   const simulateMutation = useMutation({
     mutationFn: async (data: { userId: string; deviceId: string; action: string }) => {
@@ -129,15 +97,12 @@ export default function Dashboard() {
       setPendingScenario(null);
       setSelectedConnectionId(null);
       setLatestEdgeKey(`${data.connection.sourceId}-${data.connection.targetId}`);
-      // Refetch queries instead of just invalidating to ensure immediate updates
       queryClient.refetchQueries({ queryKey: ["/api/connections"] });
       queryClient.refetchQueries({ queryKey: ["/api/network/graph"] });
       queryClient.refetchQueries({ queryKey: ["/api/analytics"] });
 
       if (data.evaluation.verdict === "CHALLENGE_MFA") {
         setCurrentConnectionId(data.connection.id);
-        // Store connection data in sessionStorage to handle serverless function restarts
-        sessionStorage.setItem("mfa-pending-connection", JSON.stringify(data.connection));
         setMfaDialogOpen(true);
         setSimulationOpen(false);
         toast({
@@ -164,24 +129,11 @@ export default function Dashboard() {
   const mfaVerifyMutation = useMutation({
     mutationFn: async (code: string) => {
       if (!currentConnectionId) throw new Error("No connection ID");
-      
-      // Retrieve stored connection data to handle serverless restarts
-      const storedConnection = sessionStorage.getItem("mfa-pending-connection");
-      let connection = null;
-      if (storedConnection) {
-        try {
-          connection = JSON.parse(storedConnection);
-        } catch (e) {
-          console.warn("Failed to parse stored connection", e);
-        }
-      }
-      
       const res = await apiRequest("POST", "/api/verify-mfa", {
         connectionId: currentConnectionId,
         code,
-        connection, // Send connection data for serverless recovery
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
         if (res.status === 404) {
@@ -189,12 +141,8 @@ export default function Dashboard() {
         }
         throw new Error(errorData.error || "Verification failed");
       }
-      
+
       const result = await res.json() as { verified: boolean; connection: Connection };
-      
-      // Clear stored connection after successful verification
-      sessionStorage.removeItem("mfa-pending-connection");
-      
       queryClient.refetchQueries({ queryKey: ["/api/connections"] });
       queryClient.refetchQueries({ queryKey: ["/api/network/graph"] });
       queryClient.refetchQueries({ queryKey: ["/api/analytics"] });
@@ -211,7 +159,6 @@ export default function Dashboard() {
     onError: (error: Error) => {
       if (error.message === "Connection expired") {
         setMfaDialogOpen(false);
-        sessionStorage.removeItem("mfa-pending-connection");
         toast({
           title: "Connection Expired",
           description: "The connection session expired. Please run a new simulation.",
@@ -245,10 +192,8 @@ export default function Dashboard() {
     },
   });
 
-  // Feature 3: clicking a history row → load its evaluation and show Network tab
   const handleConnectionSelect = (conn: Connection) => {
     if (selectedConnectionId === conn.id) {
-      // Deselect
       setSelectedConnectionId(null);
       setCurrentEvaluation(null);
     } else {
@@ -406,7 +351,6 @@ export default function Dashboard() {
         onVerify={(code) => mfaVerifyMutation.mutateAsync(code)}
         onCancel={() => {
           setMfaDialogOpen(false);
-          sessionStorage.removeItem("mfa-pending-connection");
           toast({
             title: "MFA Cancelled",
             description: "Verification was cancelled - connection remains challenged",

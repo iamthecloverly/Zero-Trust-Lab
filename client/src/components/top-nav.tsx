@@ -3,11 +3,12 @@ import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSimulation } from "@/contexts/simulation-context";
 import { cn } from "@/lib/utils";
-import type { Connection, AnalyticsResponse } from "@shared/schema";
+import type { Connection } from "@shared/schema";
 
-interface TopNavProps {
-  onRunSimulation: () => void;
+interface AnalyticsResponse {
+  policyViolations: Array<{ policyType: string; violationCount: number }>;
 }
 
 const NAV_LINKS = [
@@ -17,8 +18,10 @@ const NAV_LINKS = [
   { label: "Policies",   href: "/policies" },
 ];
 
-export function TopNav({ onRunSimulation }: TopNavProps) {
+export function TopNav() {
   const [location] = useLocation();
+  const { startSimulation } = useSimulation();
+  
   const { data: connections = [] } = useQuery<Connection[]>({
     queryKey: ["/api/connections"],
   });
@@ -30,6 +33,10 @@ export function TopNav({ onRunSimulation }: TopNavProps) {
   const totalViolations = analytics
     ? analytics.policyViolations.filter((v) => v.violationCount > 0).length
     : 0;
+
+  const handleRunSimulation = () => {
+    startSimulation();
+  };
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-card px-4">
@@ -102,7 +109,7 @@ export function TopNav({ onRunSimulation }: TopNavProps) {
         <Button
           size="sm"
           className="gap-1.5"
-          onClick={onRunSimulation}
+          onClick={handleRunSimulation}
           data-testid="button-run-simulation"
         >
           <Play className="h-3.5 w-3.5" />

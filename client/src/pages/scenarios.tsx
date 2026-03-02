@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { PageHeader } from "@/components/page-header";
 import { CategoryFilterTabs } from "@/components/category-filter-tabs";
 import { ScenarioCard } from "@/components/scenario-card";
+import { useSimulation } from "@/contexts/simulation-context";
 import { SCENARIOS, type ScenarioCategory, type Scenario } from "@/lib/scenarios";
 
 type FilterValue = "All" | ScenarioCategory;
@@ -10,24 +11,17 @@ type FilterValue = "All" | ScenarioCategory;
 export default function ScenariosPage() {
   const [filter, setFilter] = useState<FilterValue>("All");
   const [, navigate] = useLocation();
+  const { startSimulation } = useSimulation();
 
   const filtered =
     filter === "All" ? SCENARIOS : SCENARIOS.filter((s) => s.category === filter);
 
   const handleRun = (scenario: Scenario) => {
-    // Store the scenario params in sessionStorage so Dashboard can pick them up
-    try {
-      sessionStorage.setItem(
-        "pending-scenario",
-        JSON.stringify({
-          userId: scenario.userId,
-          deviceId: scenario.deviceId,
-          action: scenario.action,
-        })
-      );
-    } catch {
-      // ignore
-    }
+    startSimulation({
+      userId: scenario.userId,
+      deviceId: scenario.deviceId,
+      action: scenario.action,
+    });
     navigate("/");
   };
 

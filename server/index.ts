@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { errorHandler } from "./middleware/error-handler";
 
 const app = express();
 
@@ -43,15 +44,8 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    const status =
-      (err instanceof Error && "status" in err ? (err as { status?: number }).status : undefined) ||
-      (err instanceof Error && "statusCode" in err ? (err as { statusCode?: number }).statusCode : undefined) ||
-      500;
-    const message = err instanceof Error ? err.message : "Internal Server Error";
-    console.error(err);
-    res.status(status).json({ message });
-  });
+  // Register global error handler after all routes
+  app.use(errorHandler);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

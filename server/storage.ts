@@ -18,294 +18,179 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { SAMPLE_USERS, SAMPLE_DEVICES, SAMPLE_POLICIES } from "./constants";
 
-export interface IStorage {
+type StorageInterface = {
   getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
   getDevices(): Promise<Device[]>;
   getDevice(id: string): Promise<Device | undefined>;
   createDevice(device: InsertDevice): Promise<Device>;
-  
   getConnections(): Promise<Connection[]>;
   getConnection(id: string): Promise<Connection | undefined>;
   createConnection(connection: InsertConnection): Promise<Connection>;
   updateConnectionMFA(id: string, verified: boolean): Promise<Connection | undefined>;
   clearConnections(): Promise<void>;
-  
   getPolicies(): Promise<Policy[]>;
   getPolicy(id: string): Promise<Policy | undefined>;
   updatePolicy(id: string, enabled: boolean): Promise<Policy | undefined>;
   createPolicy(policy: InsertPolicy): Promise<Policy>;
-}
+  close?(): Promise<void>;
+};
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private devices: Map<string, Device>;
-  private connections: Map<string, Connection>;
-  private policies: Map<string, Policy>;
+/** In-memory storage for development and Vercel deployments */
+function createMemStorage(): StorageInterface {
+  const users_ = new Map<string, User>();
+  const devices_ = new Map<string, Device>();
+  const connections_ = new Map<string, Connection>();
+  const policies_ = new Map<string, Policy>();
 
-  constructor() {
-    this.users = new Map();
-    this.devices = new Map();
-    this.connections = new Map();
-    this.policies = new Map();
-    
-    this.initializeSampleData();
+  // Initialize sample data
+  for (const user of SAMPLE_USERS) {
+    const newUser: User = { ...user, mfaEnabled: user.mfaEnabled ?? false };
+    users_.set(newUser.id, newUser);
+  }
+  for (const device of SAMPLE_DEVICES) {
+    const newDevice: Device = { ...device, verified: device.verified ?? false };
+    devices_.set(newDevice.id, newDevice);
+  }
+  for (const policy of SAMPLE_POLICIES) {
+    const id = randomUUID();
+    const newPolicy: Policy = { ...policy, id, enabled: policy.enabled ?? true };
+    policies_.set(id, newPolicy);
   }
 
-  private initializeSampleData() {
-    for (const user of SAMPLE_USERS) {
+  return {
+    getUsers: () => Promise.resolve(Array.from(users_.values())),
+    getUser: (id: string) => Promise.resolve(users_.get(id)),
+    createUser: (user: InsertUser) => {
       const newUser: User = { ...user, mfaEnabled: user.mfaEnabled ?? false };
-      this.users.set(newUser.id, newUser);
-    }
+      users_.set(newUser.id, newUser);
+      return Promise.resolve(newUser);
+    },
 
-    for (const device of SAMPLE_DEVICES) {
+    getDevices: () => Promise.resolve(Array.from(devices_.values())),
+    getDevice: (id: string) => Promise.resolve(devices_.get(id)),
+    createDevice: (device: InsertDevice) => {
       const newDevice: Device = { ...device, verified: device.verified ?? false };
-      this.devices.set(newDevice.id, newDevice);
-    }
+      devices_.set(newDevice.id, newDevice);
+      return Promise.resolve(newDevice);
+    },
 
-    for (const policy of SAMPLE_POLICIES) {
+    getConnections: () => Promise.resolve(Array.from(connections_.values())),
+    getConnection: (id: string) => Promise.resolve(connections_.get(id)),
+    createConnection: (connection: InsertConnection) => {
+      const id = randomUUID();
+      const timestamp = new Date().toISOString();
+      const mfaChallenged = connection.verdict === "CHALLENGE_MFA";
+      const newConnection: Connection = {
+        ...connection,
+        id,
+        timestamp,
+        mfaChallenged,
+        mfaVerified: null,
+      };
+      connections_.set(id, newConnection);
+      return Promise.resolve(newConnection);
+    },
+    updateConnectionMFA: (id: string, verified: boolean) => {
+      const connection = connections_.get(id);
+      if (!connection) return Promise.resolve(undefined);
+      const updated: Connection = { ...connection, mfaVerified: verified };
+      connections_.set(id, updated);
+      return Promise.resolve({ ...updated });
+    },
+    clearConnections: () => {
+      connections_.clear();
+      return Promise.resolve();
+    },
+
+    getPolicies: () => Promise.resolve(Array.from(policies_.values())),
+    getPolicy: (id: string) => Promise.resolve(policies_.get(id)),
+    updatePolicy: (id: string, enabled: boolean) => {
+      const policy = policies_.get(id);
+      if (!policy) return Promise.resolve(undefined);
+      const updated: Policy = { ...policy, enabled };
+      policies_.set(id, updated);
+      return Promise.resolve({ ...updated });
+    },
+    createPolicy: (policy: InsertPolicy) => {
       const id = randomUUID();
       const newPolicy: Policy = { ...policy, id, enabled: policy.enabled ?? true };
-      this.policies.set(id, newPolicy);
-    }
-  }
-
-  async getUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
-  }
-
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async createUser(user: InsertUser): Promise<User> {
-    const newUser: User = {
-      ...user,
-      mfaEnabled: user.mfaEnabled ?? false,
-    };
-    this.users.set(newUser.id, newUser);
-    return newUser;
-  }
-
-  async getDevices(): Promise<Device[]> {
-    return Array.from(this.devices.values());
-  }
-
-  async getDevice(id: string): Promise<Device | undefined> {
-    return this.devices.get(id);
-  }
-
-  async createDevice(device: InsertDevice): Promise<Device> {
-    const newDevice: Device = {
-      ...device,
-      verified: device.verified ?? false,
-    };
-    this.devices.set(newDevice.id, newDevice);
-    return newDevice;
-  }
-
-  async getConnections(): Promise<Connection[]> {
-    return Array.from(this.connections.values());
-  }
-
-  async getConnection(id: string): Promise<Connection | undefined> {
-    return this.connections.get(id);
-  }
-
-  async createConnection(connection: InsertConnection): Promise<Connection> {
-    const id = randomUUID();
-    const timestamp = new Date().toISOString();
-    const mfaChallenged = connection.verdict === "CHALLENGE_MFA";
-    const newConnection: Connection = {
-      ...connection,
-      id,
-      timestamp,
-      mfaChallenged,
-      mfaVerified: null,
-    };
-    this.connections.set(id, newConnection);
-    return newConnection;
-  }
-
-  async updateConnectionMFA(id: string, verified: boolean): Promise<Connection | undefined> {
-    const connection = this.connections.get(id);
-    if (!connection) return undefined;
-
-    const updated: Connection = { ...connection, mfaVerified: verified };
-    this.connections.set(id, updated);
-    return { ...updated };
-  }
-
-  async clearConnections(): Promise<void> {
-    this.connections.clear();
-  }
-
-  async getPolicies(): Promise<Policy[]> {
-    return Array.from(this.policies.values());
-  }
-
-  async getPolicy(id: string): Promise<Policy | undefined> {
-    return this.policies.get(id);
-  }
-
-  async updatePolicy(id: string, enabled: boolean): Promise<Policy | undefined> {
-    const policy = this.policies.get(id);
-    if (!policy) return undefined;
-
-    const updated: Policy = { ...policy, enabled };
-    this.policies.set(id, updated);
-    return { ...updated };
-  }
-
-  async createPolicy(policy: InsertPolicy): Promise<Policy> {
-    const id = randomUUID();
-    const newPolicy: Policy = {
-      ...policy,
-      id,
-      enabled: policy.enabled ?? true,
-    };
-    this.policies.set(id, newPolicy);
-    return newPolicy;
-  }
+      policies_.set(id, newPolicy);
+      return Promise.resolve(newPolicy);
+    },
+  };
 }
 
-export class DbStorage implements IStorage {
-  private db;
-  private client;
-
-  constructor() {
-    const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      throw new Error("DATABASE_URL environment variable is not set");
-    }
-    this.client = postgres(databaseUrl);
-    this.db = drizzle(this.client);
+/** Database storage using Postgres and Drizzle ORM */
+function createDbStorage(): StorageInterface {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL environment variable is not set");
   }
+  const client = postgres(databaseUrl);
+  const db = drizzle(client);
 
-  async close(): Promise<void> {
-    await this.client.end();
-  }
+  return {
+    getUsers: () => db.select().from(users),
+    getUser: (id: string) => db.select().from(users).where(eq(users.id, id)).then((r) => r[0]),
+    createUser: (user: InsertUser) => db.insert(users).values(user).returning().then((r) => r[0]),
 
-  async getUsers(): Promise<User[]> {
-    return await this.db.select().from(users);
-  }
+    getDevices: () => db.select().from(devices),
+    getDevice: (id: string) => db.select().from(devices).where(eq(devices.id, id)).then((r) => r[0]),
+    createDevice: (device: InsertDevice) => db.insert(devices).values(device).returning().then((r) => r[0]),
 
-  async getUser(id: string): Promise<User | undefined> {
-    const result = await this.db.select().from(users).where(eq(users.id, id));
-    return result[0];
-  }
+    getConnections: () => db.select().from(connections),
+    getConnection: (id: string) => db.select().from(connections).where(eq(connections.id, id)).then((r) => r[0]),
+    createConnection: (connection: InsertConnection) => {
+      const id = randomUUID();
+      const timestamp = new Date().toISOString();
+      const mfaChallenged = connection.verdict === "CHALLENGE_MFA";
+      const newConnection = { ...connection, id, timestamp, mfaChallenged, mfaVerified: null };
+      return db.insert(connections).values(newConnection).returning().then((r) => r[0]);
+    },
+    updateConnectionMFA: (id: string, verified: boolean) =>
+      db.update(connections).set({ mfaVerified: verified }).where(eq(connections.id, id)).returning().then((r) => r[0]),
+    clearConnections: () => db.delete(connections).then(() => {}),
 
-  async createUser(user: InsertUser): Promise<User> {
-    const result = await this.db.insert(users).values(user).returning();
-    return result[0];
-  }
+    getPolicies: () => db.select().from(policies),
+    getPolicy: (id: string) => db.select().from(policies).where(eq(policies.id, id)).then((r) => r[0]),
+    updatePolicy: (id: string, enabled: boolean) =>
+      db.update(policies).set({ enabled }).where(eq(policies.id, id)).returning().then((r) => r[0]),
+    createPolicy: (policy: InsertPolicy) => {
+      const id = randomUUID();
+      const newPolicy = { ...policy, id };
+      return db.insert(policies).values(newPolicy).returning().then((r) => r[0]);
+    },
 
-  async getDevices(): Promise<Device[]> {
-    return await this.db.select().from(devices);
-  }
-
-  async getDevice(id: string): Promise<Device | undefined> {
-    const result = await this.db.select().from(devices).where(eq(devices.id, id));
-    return result[0];
-  }
-
-  async createDevice(device: InsertDevice): Promise<Device> {
-    const result = await this.db.insert(devices).values(device).returning();
-    return result[0];
-  }
-
-  async getConnections(): Promise<Connection[]> {
-    return await this.db.select().from(connections);
-  }
-
-  async getConnection(id: string): Promise<Connection | undefined> {
-    const result = await this.db.select().from(connections).where(eq(connections.id, id));
-    return result[0];
-  }
-
-  async createConnection(connection: InsertConnection): Promise<Connection> {
-    const id = randomUUID();
-    const timestamp = new Date().toISOString();
-    const mfaChallenged = connection.verdict === "CHALLENGE_MFA";
-    const newConnection = {
-      ...connection,
-      id,
-      timestamp,
-      mfaChallenged,
-      mfaVerified: null,
-    };
-    const result = await this.db.insert(connections).values(newConnection).returning();
-    return result[0];
-  }
-
-  async updateConnectionMFA(id: string, verified: boolean): Promise<Connection | undefined> {
-    const result = await this.db
-      .update(connections)
-      .set({ mfaVerified: verified })
-      .where(eq(connections.id, id))
-      .returning();
-    return result[0];
-  }
-
-  async clearConnections(): Promise<void> {
-    await this.db.delete(connections);
-  }
-
-  async getPolicies(): Promise<Policy[]> {
-    return await this.db.select().from(policies);
-  }
-
-  async getPolicy(id: string): Promise<Policy | undefined> {
-    const result = await this.db.select().from(policies).where(eq(policies.id, id));
-    return result[0];
-  }
-
-  async updatePolicy(id: string, enabled: boolean): Promise<Policy | undefined> {
-    const result = await this.db
-      .update(policies)
-      .set({ enabled })
-      .where(eq(policies.id, id))
-      .returning();
-    return result[0];
-  }
-
-  async createPolicy(policy: InsertPolicy): Promise<Policy> {
-    const id = randomUUID();
-    const newPolicy = {
-      ...policy,
-      id,
-    };
-    const result = await this.db.insert(policies).values(newPolicy).returning();
-    return result[0];
-  }
+    close: () => client.end(),
+  };
 }
+let storage: StorageInterface;
+let dbClient: StorageInterface | null = null;
 
-// Use DbStorage only when explicitly enabled, otherwise use in-memory storage
-// On Vercel, use MemStorage unless specifically configured for database
-let storage: IStorage;
 try {
   const useDatabase = process.env.DATABASE_URL && process.env.USE_DATABASE === "true";
   if (useDatabase) {
     console.log("Using database storage with DATABASE_URL");
-    storage = new DbStorage();
+    dbClient = createDbStorage();
+    storage = dbClient;
   } else {
     console.log("Using in-memory storage");
-    storage = new MemStorage();
+    storage = createMemStorage();
   }
 } catch (error) {
   console.warn("Failed to initialize database storage, falling back to in-memory storage:", error);
-  storage = new MemStorage();
+  storage = createMemStorage();
 }
 
 export { storage };
 
-// Gracefully close the DB connection pool on process exit
+// Gracefully close DB connection pool on process exit
 if (typeof process !== "undefined" && typeof process.on === "function") {
   process.on("SIGTERM", async () => {
-    if (storage instanceof DbStorage) {
-      await storage.close();
+    if (dbClient && "close" in dbClient) {
+      await (dbClient as { close(): Promise<void> }).close();
     }
   });
 }

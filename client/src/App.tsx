@@ -1,10 +1,11 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { Component, type ReactNode } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SimulationProvider } from "@/contexts/simulation-context";
 import { TopNav } from "@/components/top-nav";
 import Dashboard from "@/pages/dashboard";
 import ScenariosPage from "@/pages/scenarios";
@@ -46,26 +47,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 function AppShell() {
-  const [location, navigate] = useLocation();
-
-  const handleRunSimulation = () => {
-    if (location === "/") {
-      // Dashboard is already mounted — useEffect([]) won't re-run.
-      // Dispatch a custom event so Dashboard's event listener opens the dialog directly.
-      window.dispatchEvent(new CustomEvent("open-simulation"));
-    } else {
-      try {
-        sessionStorage.setItem("open-simulation", "1");
-      } catch {
-        // ignore private browsing / storage errors
-      }
-      navigate("/");
-    }
-  };
-
   return (
     <div className="flex h-screen flex-col">
-      <TopNav onRunSimulation={handleRunSimulation} />
+      <TopNav />
       <main className="flex-1 overflow-hidden">
         <ErrorBoundary>
           <Switch>
@@ -86,8 +70,10 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
-          <AppShell />
-          <Toaster />
+          <SimulationProvider>
+            <AppShell />
+            <Toaster />
+          </SimulationProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
