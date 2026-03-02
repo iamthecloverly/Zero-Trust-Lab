@@ -323,8 +323,10 @@ try {
 export { storage };
 
 // Gracefully close the DB connection pool on process exit
-process.on("SIGTERM", async () => {
-  if (storage instanceof DbStorage) {
-    await storage.close();
-  }
-});
+if (typeof process !== "undefined" && typeof process.on === "function") {
+  process.on("SIGTERM", async () => {
+    if (storage instanceof DbStorage) {
+      await storage.close();
+    }
+  });
+}

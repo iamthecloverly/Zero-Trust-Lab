@@ -10,7 +10,7 @@ const generalLimiter = createRateLimiter(60000, 100); // 100 requests per minute
 const simulationLimiter = createRateLimiter(60000, 30); // 30 simulations per minute
 const mfaLimiter = createRateLimiter(60000, 10); // 10 MFA attempts per minute
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function setupRoutes(app: Express): Promise<void> {
   // Apply general rate limiting to all API routes
   app.use('/api', generalLimiter);
 
@@ -311,7 +311,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
+}
 
+export async function registerRoutes(app: Express): Promise<Server> {
+  await setupRoutes(app);
+  const httpServer = createServer(app);
   return httpServer;
 }

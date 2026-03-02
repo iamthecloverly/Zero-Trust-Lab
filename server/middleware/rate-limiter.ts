@@ -11,14 +11,18 @@ export function createRateLimiter(windowMs: number, max: number) {
   const store: Record<string, RateLimitEntry> = {};
 
   // Cleanup old entries periodically; unref so it doesn't prevent process exit
-  setInterval(() => {
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const key of Object.keys(store)) {
       if (now > store[key].resetTime) {
         delete store[key];
       }
     }
-  }, windowMs).unref();
+  }, windowMs);
+
+  if (typeof (cleanupTimer as NodeJS.Timeout).unref === "function") {
+    (cleanupTimer as NodeJS.Timeout).unref();
+  }
 
   return (req: Request, res: Response, next: NextFunction) => {
     const key = req.ip || 'unknown';

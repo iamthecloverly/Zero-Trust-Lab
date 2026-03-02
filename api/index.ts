@@ -12,7 +12,7 @@
 
 import express, { type Request, type Response, type NextFunction } from "express";
 import helmet from "helmet";
-import { registerRoutes } from "../server/routes";
+import { setupRoutes } from "../server/routes";
 
 const app = express();
 
@@ -30,11 +30,17 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ message });
 });
 
-// Initialize routes once; the returned HTTP server is unused on Vercel
-// (Vercel manages the transport layer). The call registers all /api/* routes.
-const ready = registerRoutes(app).then(() => app);
+// Initialize routes once for serverless runtime.
+const ready = setupRoutes(app).then(() => app);
 
 export default async function handler(req: Request, res: Response) {
-  const expressApp = await ready;
-  return expressApp(req, res);
+  try {
+    const expressApp = await ready;
+    return expressApp(req, res);
+  } catch (error) {
+    console.error("Vercel handler initialization failed:", error);
+    return res.status(500).json({
+      error: "Server initialization failed",
+    });
+  }
 }
