@@ -65,7 +65,7 @@ export function TrustScoreDisplay({ evaluation }: TrustScoreDisplayProps) {
     },
   };
 
-  const config = verdictConfig[evaluation.verdict];
+  const config = verdictConfig[evaluation.verdict as keyof typeof verdictConfig] ?? verdictConfig["DENY"];
   const VerdictIcon = config.icon;
 
   return (
