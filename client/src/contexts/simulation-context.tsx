@@ -6,6 +6,7 @@ interface SimulationContextType {
   simulationOpen: boolean;
   mfaDialogOpen: boolean;
   currentConnectionId: string | null;
+  currentConnection: Connection | null;
   currentEvaluation: TrustEvaluation | null;
   networkGraph: NetworkGraph;
   pendingScenario: { userId: string; deviceId: string; action: string } | null;
@@ -17,6 +18,7 @@ interface SimulationContextType {
   setSimulationOpen: (open: boolean) => void;
   setMfaDialogOpen: (open: boolean) => void;
   setCurrentConnectionId: (id: string | null) => void;
+  setCurrentConnection: (connection: Connection | null) => void;
   setCurrentEvaluation: (evaluation: TrustEvaluation | null) => void;
   setNetworkGraph: (graph: NetworkGraph) => void;
   setPendingScenario: (scenario: { userId: string; deviceId: string; action: string } | null) => void;
@@ -37,6 +39,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [simulationOpen, setSimulationOpen] = useState(false);
   const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
   const [currentConnectionId, setCurrentConnectionId] = useState<string | null>(null);
+  const [currentConnection, setCurrentConnection] = useState<Connection | null>(null);
   const [currentEvaluation, setCurrentEvaluation] = useState<TrustEvaluation | null>(null);
   const [networkGraph, setNetworkGraph] = useState<NetworkGraph>({ nodes: [], edges: [] });
   const [pendingScenario, setPendingScenario] = useState<{
@@ -72,6 +75,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     setPendingScenario(null);
     setSelectedConnectionId(null);
     setCurrentConnectionId(null);
+    setCurrentConnection(null);
     setCurrentEvaluation(null);
     setSimulationOpen(false);
     setMfaDialogOpen(false);
@@ -81,6 +85,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     simulationOpen,
     mfaDialogOpen,
     currentConnectionId,
+    currentConnection,
     currentEvaluation,
     networkGraph,
     pendingScenario,
@@ -91,6 +96,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     setSimulationOpen,
     setMfaDialogOpen,
     setCurrentConnectionId,
+    setCurrentConnection,
     setCurrentEvaluation,
     setNetworkGraph,
     setPendingScenario,

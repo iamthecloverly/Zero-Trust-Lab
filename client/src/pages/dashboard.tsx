@@ -34,6 +34,8 @@ export default function Dashboard() {
     setMfaDialogOpen,
     currentConnectionId,
     setCurrentConnectionId,
+    currentConnection,
+    setCurrentConnection,
     currentEvaluation,
     setCurrentEvaluation,
     networkGraph,
@@ -103,6 +105,7 @@ export default function Dashboard() {
 
       if (data.evaluation.verdict === "CHALLENGE_MFA") {
         setCurrentConnectionId(data.connection.id);
+        setCurrentConnection(data.connection);
         setMfaDialogOpen(true);
         setSimulationOpen(false);
         toast({
@@ -132,6 +135,7 @@ export default function Dashboard() {
       const res = await apiRequest("POST", "/api/verify-mfa", {
         connectionId: currentConnectionId,
         code,
+        connection: currentConnection || undefined, // Send connection data for serverless recovery
       });
 
       if (!res.ok) {
@@ -150,6 +154,7 @@ export default function Dashboard() {
       return result;
     },
     onSuccess: () => {
+      setCurrentConnection(null);
       setMfaDialogOpen(false);
       toast({
         title: "MFA Verification Successful",

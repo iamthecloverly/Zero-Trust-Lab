@@ -160,7 +160,7 @@ export async function setupRoutes(app: Express): Promise<void> {
   }));
 
   app.post("/api/verify-mfa", mfaLimiter, asyncHandler(async (req, res) => {
-    const { connectionId, code } = req.body;
+    const { connectionId, code, connection: connectionFallback } = req.body;
 
     if (!connectionId || !code) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -176,7 +176,13 @@ export async function setupRoutes(app: Express): Promise<void> {
       return res.status(400).json({ error: "Invalid code format" });
     }
 
-    const connection = await storage.getConnection(connectionId);
+    let connection = await storage.getConnection(connectionId);
+    
+    // Fallback to connection data sent from client for serverless recovery
+    if (!connection && connectionFallback) {
+      connection = connectionFallback;
+    }
+    
     if (!connection) {
       return res.status(404).json({ error: "Connection not found" });
     }
