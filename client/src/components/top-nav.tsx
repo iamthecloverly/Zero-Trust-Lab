@@ -111,6 +111,7 @@ export function TopNav() {
           className="gap-1.5"
           onClick={handleRunSimulation}
           data-testid="button-run-simulation"
+          data-tour-id="run-simulation"
         >
           <Play className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Run Simulation</span>

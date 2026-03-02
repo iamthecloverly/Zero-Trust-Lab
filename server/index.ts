@@ -7,7 +7,30 @@ import { errorHandler } from "./middleware/error-handler";
 const app = express();
 
 app.set('trust proxy', 1);
-app.use(helmet());
+
+// Vite dev server uses eval() and dynamic module injection, so CSP must be
+// disabled in development. Production gets a tight Content Security Policy.
+const isDev = process.env.NODE_ENV !== "production";
+app.use(
+  helmet({
+    contentSecurityPolicy: isDev
+      ? false
+      : {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            // Allow inline styles: Radix UI and framer-motion both set inline styles at runtime.
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:"],
+            fontSrc: ["'self'"],
+            connectSrc: ["'self'"],
+            frameAncestors: ["'none'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+          },
+        },
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

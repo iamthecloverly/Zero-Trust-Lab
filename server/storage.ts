@@ -180,7 +180,7 @@ try {
     storage = createMemStorage();
   }
 } catch (error) {
-  console.warn("Failed to initialize database storage, falling back to in-memory storage:", error);
+  console.error("CRITICAL: Database init failed — using non-persistent in-memory fallback. All data will be lost on restart.", error);
   storage = createMemStorage();
 }
 

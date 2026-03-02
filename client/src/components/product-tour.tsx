@@ -48,7 +48,7 @@ export function ProductTour() {
       disableBeacon: true,
     },
     {
-      target: '[data-testid="button-run-simulation"]',
+      target: '[data-tour-id="run-simulation"]',
       content: (
         <div>
           <h3 className="text-lg font-bold mb-2">Run Access Simulations</h3>
@@ -82,7 +82,7 @@ export function ProductTour() {
       placement: "right",
     },
     {
-      target: '[data-testid="text-trust-score"]',
+      target: '[data-tour-id="trust-score"]',
       content: (
         <div>
           <h3 className="text-lg font-bold mb-2">Trust Score System</h3>
@@ -103,20 +103,20 @@ export function ProductTour() {
       placement: "left",
     },
     {
-      target: ".connection-history-container",
+      target: '[data-tour-id="activity-tab"]',
       content: (
         <div>
           <h3 className="text-lg font-bold mb-2">Connection History</h3>
           <p className="text-sm">
             View a complete log of all connection attempts with timestamps, verdicts, and trust scores.
           </p>
-          <p className="text-sm mt-2">Switch to the Activity tab to see the full history.</p>
+          <p className="text-sm mt-2">Click the <strong>Activity</strong> tab to see the full history.</p>
         </div>
       ),
-      placement: "left",
+      placement: "bottom",
     },
     {
-      target: '[data-testid="button-reset-network"]',
+      target: '[data-tour-id="reset-network"]',
       content: (
         <div>
           <h3 className="text-lg font-bold mb-2">Reset Network</h3>
@@ -152,6 +152,8 @@ export function ProductTour() {
       continuous
       showProgress
       showSkipButton
+      scrollToFirstStep
+      scrollOffset={80}
       callback={handleJoyrideCallback}
       styles={{
         options: {

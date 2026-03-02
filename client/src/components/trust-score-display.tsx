@@ -2,9 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Shield,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
   Check,
   ShieldAlert,
   Lock,
@@ -12,6 +9,7 @@ import {
   UserX,
 } from "lucide-react";
 import type { TrustEvaluation } from "@shared/schema";
+import { VERDICT_CONFIG } from "@/lib/verdict-config";
 
 const iconMap: Record<string, typeof Shield> = {
   "check": Check,
@@ -28,7 +26,7 @@ interface TrustScoreDisplayProps {
 export function TrustScoreDisplay({ evaluation }: TrustScoreDisplayProps) {
   if (!evaluation) {
     return (
-      <Card>
+      <Card data-tour-id="trust-score">
         <CardHeader className="gap-1 space-y-0 pb-4">
           <CardTitle className="text-lg font-semibold">Trust Score</CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -44,32 +42,11 @@ export function TrustScoreDisplay({ evaluation }: TrustScoreDisplayProps) {
     );
   }
 
-  const verdictConfig = {
-    ALLOW: {
-      color: "bg-status-allow",
-      textColor: "text-status-allow",
-      icon: CheckCircle2,
-      label: "ALLOW",
-    },
-    CHALLENGE_MFA: {
-      color: "bg-status-challenge",
-      textColor: "text-status-challenge",
-      icon: AlertTriangle,
-      label: "CHALLENGE",
-    },
-    DENY: {
-      color: "bg-status-deny",
-      textColor: "text-status-deny",
-      icon: XCircle,
-      label: "DENY",
-    },
-  };
-
-  const config = verdictConfig[evaluation.verdict as keyof typeof verdictConfig] ?? verdictConfig["DENY"];
+  const config = VERDICT_CONFIG[evaluation.verdict as keyof typeof VERDICT_CONFIG] ?? VERDICT_CONFIG["DENY"];
   const VerdictIcon = config.icon;
 
   return (
-    <Card>
+    <Card data-tour-id="trust-score">
       <CardHeader className="gap-1 space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold">Trust Score</CardTitle>
         <p className="text-sm text-muted-foreground">Real-time evaluation</p>
@@ -110,7 +87,7 @@ export function TrustScoreDisplay({ evaluation }: TrustScoreDisplayProps) {
 
         <div className="flex items-center justify-center">
           <Badge
-            className={`${config.color} gap-2 px-4 py-2 text-white`}
+            className={`${config.bgColor} gap-2 px-4 py-2 text-white`}
             data-testid={`badge-verdict-${evaluation.verdict.toLowerCase()}`}
           >
             <VerdictIcon className="h-4 w-4" />

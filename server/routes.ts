@@ -7,6 +7,8 @@ import type { SimulationResponse } from "../shared/schema";
 import { createRateLimiter } from "./middleware/rate-limiter";
 import { asyncHandler, errorHandler } from "./middleware/error-handler";
 
+const MAX_FIELD_LENGTH = 100;
+
 // Rate limiters
 const generalLimiter = createRateLimiter(60000, 100); // 100 requests per minute
 const simulationLimiter = createRateLimiter(60000, 30); // 30 simulations per minute
@@ -55,7 +57,7 @@ export async function setupRoutes(app: Express): Promise<void> {
 
   app.patch("/api/policies/:id", asyncHandler(async (req, res) => {
     const { id } = req.params;
-    if (id.length > 100) return res.status(400).json({ error: "Invalid id" });
+    if (id.length > MAX_FIELD_LENGTH) return res.status(400).json({ error: "Invalid id" });
     const { enabled } = req.body;
 
     if (typeof enabled !== "boolean") {
@@ -82,7 +84,11 @@ export async function setupRoutes(app: Express): Promise<void> {
       return res.status(400).json({ error: "Invalid input types" });
     }
 
-    if (userId.length > 100 || deviceId.length > 100 || action.length > 100) {
+    if (!userId.trim() || !deviceId.trim() || !action.trim()) {
+      return res.status(400).json({ error: "Fields must not be blank" });
+    }
+
+    if (userId.length > MAX_FIELD_LENGTH || deviceId.length > MAX_FIELD_LENGTH || action.length > MAX_FIELD_LENGTH) {
       return res.status(400).json({ error: "Input too long" });
     }
 
@@ -126,7 +132,7 @@ export async function setupRoutes(app: Express): Promise<void> {
   }));
 
   app.get("/api/policies/:id", asyncHandler(async (req, res) => {
-    if (req.params.id.length > 100) return res.status(400).json({ error: "Invalid id" });
+    if (req.params.id.length > MAX_FIELD_LENGTH) return res.status(400).json({ error: "Invalid id" });
     const policies = await storage.getPolicies();
     const policy = policies.find((p) => p.id === req.params.id);
     if (!policy) return res.status(404).json({ error: "Policy not found" });
@@ -146,7 +152,7 @@ export async function setupRoutes(app: Express): Promise<void> {
 
   // Re-evaluate a past connection with current policies (for history replay)
   app.get("/api/connections/:id/evaluation", asyncHandler(async (req, res) => {
-    if (req.params.id.length > 100) return res.status(400).json({ error: "Invalid id" });
+    if (req.params.id.length > MAX_FIELD_LENGTH) return res.status(400).json({ error: "Invalid id" });
     const connection = await storage.getConnection(req.params.id);
     if (!connection) return res.status(404).json({ error: "Connection not found" });
 
@@ -177,7 +183,7 @@ export async function setupRoutes(app: Express): Promise<void> {
     }
 
     let connection = await storage.getConnection(connectionId);
-    
+
     // Fallback to connection data sent from client for serverless recovery
     if (!connection && connectionFallback) {
       connection = connectionFallback;

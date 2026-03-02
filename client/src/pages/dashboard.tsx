@@ -135,7 +135,7 @@ export default function Dashboard() {
       const res = await apiRequest("POST", "/api/verify-mfa", {
         connectionId: currentConnectionId,
         code,
-        connection: currentConnection || undefined, // Send connection data for serverless recovery
+        connection: currentConnection || undefined, // Sent for serverless cold-start recovery
       });
 
       if (!res.ok) {
@@ -231,6 +231,7 @@ export default function Dashboard() {
             onClick={() => resetMutation.mutate()}
             disabled={resetMutation.isPending}
             data-testid="button-reset-network"
+            data-tour-id="reset-network"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Reset
@@ -285,7 +286,7 @@ export default function Dashboard() {
               <Network className="h-4 w-4" />
               Network
             </TabsTrigger>
-            <TabsTrigger value="activity" className="gap-2">
+            <TabsTrigger value="activity" className="gap-2" data-tour-id="activity-tab">
               <Activity className="h-4 w-4" />
               Activity
             </TabsTrigger>

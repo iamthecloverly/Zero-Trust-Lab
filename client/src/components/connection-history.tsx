@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle2, AlertTriangle, XCircle, ArrowRight, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { ArrowRight, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Connection } from "@shared/schema";
+import { VERDICT_CONFIG } from "@/lib/verdict-config";
 
 interface ConnectionHistoryProps {
   connections: Connection[];
@@ -18,24 +19,6 @@ export function ConnectionHistory({
   selectedId,
   onSelect,
 }: ConnectionHistoryProps) {
-  const verdictConfig = {
-    ALLOW: {
-      icon: CheckCircle2,
-      variant: "default" as const,
-      color: "text-status-allow",
-    },
-    CHALLENGE_MFA: {
-      icon: AlertTriangle,
-      variant: "secondary" as const,
-      color: "text-status-challenge",
-    },
-    DENY: {
-      icon: XCircle,
-      variant: "destructive" as const,
-      color: "text-status-deny",
-    },
-  };
-
   if (connections.length === 0) {
     return (
       <Card>
@@ -68,11 +51,10 @@ export function ConnectionHistory({
       <CardContent>
         <ScrollArea className={`${scrollHeight} pr-4`}>
           <div className="space-y-3">
-            {connections
-              .slice()
-              .reverse()
+            {[...connections]
+              .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
               .map((conn) => {
-                const config = verdictConfig[conn.verdict as keyof typeof verdictConfig] ?? verdictConfig["DENY"];
+                const config = VERDICT_CONFIG[conn.verdict as keyof typeof VERDICT_CONFIG] ?? VERDICT_CONFIG["DENY"];
                 const VerdictIcon = config.icon;
                 const isSelected = selectedId === conn.id;
 
@@ -93,7 +75,7 @@ export function ConnectionHistory({
                         <ArrowRight className="h-3 w-3 text-muted-foreground" />
                         <span className="font-semibold">{conn.targetId}</span>
                       </div>
-                      <Badge variant={config.variant} className="gap-1.5">
+                      <Badge variant={config.badgeVariant} className="gap-1.5">
                         <VerdictIcon className="h-3 w-3" />
                         {conn.verdict}
                       </Badge>

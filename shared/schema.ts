@@ -1,5 +1,4 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, integer, timestamp as pgTimestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,7 +22,9 @@ export const connections = pgTable("connections", {
   action: text("action").notNull(),
   verdict: text("verdict").notNull(),
   trustScore: integer("trust_score").notNull(),
-  timestamp: text("timestamp").notNull(),
+  // mode: "string" keeps the TypeScript type as string (ISO 8601), maintaining API compatibility.
+  // The underlying DB column is now a proper TIMESTAMP, enabling index-accelerated date queries.
+  timestamp: pgTimestamp("timestamp", { mode: "string" }).notNull(),
   mfaChallenged: boolean("mfa_challenged").notNull().default(false),
   mfaVerified: boolean("mfa_verified"),
 });
