@@ -1,10 +1,8 @@
 import type { User, Device, Policy, TrustEvaluation } from "../shared/schema";
+import { POLICY_CONFIG, POLICY_PENALTIES, TRUST_SCORE_THRESHOLDS } from "./constants";
 
-const POLICY_CONFIG = {
-  allowedRegions: ["US", "CA"],
-  serverDeviceType: "Server",
-  adminRole: "Admin",
-} as const;
+// Type-safe penalty constants for policy violations
+const penalties = POLICY_PENALTIES;
 
 export class ZeroTrustPolicyEngine {
   evaluateConnection(
@@ -22,30 +20,30 @@ export class ZeroTrustPolicyEngine {
 
     const mfaPolicy = enabledPolicies.find((p) => p.type === "mfa");
     if (mfaPolicy && !user.mfaEnabled) {
-      trustScore -= 30;
+      trustScore += penalties.MFA_NOT_ENABLED;
       breakdown.push({
         label: "MFA Not Enabled",
-        points: -30,
+        points: penalties.MFA_NOT_ENABLED,
         icon: "shield-alert",
       });
     }
 
     const devicePolicy = enabledPolicies.find((p) => p.type === "device");
     if (devicePolicy && !device.verified) {
-      trustScore -= 40;
+      trustScore += penalties.DEVICE_NOT_VERIFIED;
       breakdown.push({
         label: "Device Not Verified",
-        points: -40,
+        points: penalties.DEVICE_NOT_VERIFIED,
         icon: "lock",
       });
     }
 
     const geoPolicy = enabledPolicies.find((p) => p.type === "geo");
     if (geoPolicy && !POLICY_CONFIG.allowedRegions.includes(device.location as "US" | "CA")) {
-      trustScore -= 20;
+      trustScore += penalties.GEO_RESTRICTED;
       breakdown.push({
         label: "Restricted Geographic Location",
-        points: -20,
+        points: penalties.GEO_RESTRICTED,
         icon: "map-pin",
       });
     }
@@ -54,10 +52,10 @@ export class ZeroTrustPolicyEngine {
     const isServerAccess = device.type === POLICY_CONFIG.serverDeviceType;
     const isAdmin = user.role === POLICY_CONFIG.adminRole;
     if (rolePolicy && isServerAccess && !isAdmin) {
-      trustScore -= 10;
+      trustScore += penalties.INSUFFICIENT_ROLE;
       breakdown.push({
         label: "Insufficient Role Permissions",
-        points: -10,
+        points: penalties.INSUFFICIENT_ROLE,
         icon: "user-x",
       });
     }
@@ -65,9 +63,9 @@ export class ZeroTrustPolicyEngine {
     const finalScore = Math.max(0, trustScore);
 
     let verdict: TrustEvaluation["verdict"];
-    if (finalScore >= 70) {
+    if (finalScore >= TRUST_SCORE_THRESHOLDS.ALLOW) {
       verdict = "ALLOW";
-    } else if (finalScore >= 40) {
+    } else if (finalScore >= TRUST_SCORE_THRESHOLDS.CHALLENGE_MFA) {
       verdict = "CHALLENGE_MFA";
     } else {
       verdict = "DENY";

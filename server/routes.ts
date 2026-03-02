@@ -296,8 +296,12 @@ export async function setupRoutes(app: Express): Promise<void> {
         return res.status(400).json({ error: "MFA not required for this connection" });
       }
 
-      // Demo mode: accept the well-known demo code for demonstration purposes.
-      // In a real deployment, replace this with a TOTP/HOTP library or external MFA provider.
+      // Demo mode: In production, replace with TOTP/HOTP library or external MFA provider.
+      // Only accept "123456" in demo mode to prevent accidental production use of this code.
+      const isProduction = process.env.NODE_ENV === "production";
+      if (isProduction) {
+        return res.status(500).json({ error: "MFA not configured for this environment" });
+      }
       const verified = code === "123456";
       const updated = await storage.updateConnectionMFA(connectionId, verified);
 

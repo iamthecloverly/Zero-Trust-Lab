@@ -16,6 +16,7 @@ import { randomUUID } from "crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
+import { SAMPLE_USERS, SAMPLE_DEVICES, SAMPLE_POLICIES } from "./constants";
 
 export interface IStorage {
   getUsers(): Promise<User[]>;

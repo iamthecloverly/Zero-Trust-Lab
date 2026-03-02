@@ -52,10 +52,14 @@ export default function Dashboard() {
       const scenario = sessionStorage.getItem("pending-scenario");
       if (scenario) {
         sessionStorage.removeItem("pending-scenario");
-        const parsed = JSON.parse(scenario);
-        if (parsed && typeof parsed === "object" && typeof parsed.userId === "string" && typeof parsed.deviceId === "string" && typeof parsed.action === "string") {
-          setPendingScenario(parsed as { userId: string; deviceId: string; action: string });
-          setSimulationOpen(true);
+        try {
+          const parsed = JSON.parse(scenario);
+          if (parsed && typeof parsed === "object" && typeof parsed.userId === "string" && typeof parsed.deviceId === "string" && typeof parsed.action === "string") {
+            setPendingScenario(parsed as { userId: string; deviceId: string; action: string });
+            setSimulationOpen(true);
+          }
+        } catch (e) {
+          console.warn("Failed to parse pending scenario from sessionStorage", e);
         }
       }
     } catch {
@@ -69,7 +73,6 @@ export default function Dashboard() {
   const { data: policies = [] } = useQuery<Policy[]>({ queryKey: ["/api/policies"] });
   const { data: graph } = useQuery<NetworkGraph>({
     queryKey: ["/api/network/graph"],
-    enabled: connections.length > 0,
   });
 
   // Feature 3: replay evaluation for a selected connection from history
@@ -111,9 +114,10 @@ export default function Dashboard() {
       setPendingScenario(null);
       setSelectedConnectionId(null);
       setLatestEdgeKey(`${data.connection.sourceId}-${data.connection.targetId}`);
-      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/network/graph"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      // Refetch queries instead of just invalidating to ensure immediate updates
+      queryClient.refetchQueries({ queryKey: ["/api/connections"] });
+      queryClient.refetchQueries({ queryKey: ["/api/network/graph"] });
+      queryClient.refetchQueries({ queryKey: ["/api/analytics"] });
 
       if (data.evaluation.verdict === "CHALLENGE_MFA") {
         setCurrentConnectionId(data.connection.id);
@@ -148,7 +152,14 @@ export default function Dashboard() {
       
       // Retrieve stored connection data to handle serverless restarts
       const storedConnection = sessionStorage.getItem("mfa-pending-connection");
-      const connection = storedConnection ? JSON.parse(storedConnection) : null;
+      let connection = null;
+      if (storedConnection) {
+        try {
+          connection = JSON.parse(storedConnection);
+        } catch (e) {
+          console.warn("Failed to parse stored connection", e);
+        }
+      }
       
       const res = await apiRequest("POST", "/api/verify-mfa", {
         connectionId: currentConnectionId,
@@ -169,9 +180,9 @@ export default function Dashboard() {
       // Clear stored connection after successful verification
       sessionStorage.removeItem("mfa-pending-connection");
       
-      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/network/graph"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.refetchQueries({ queryKey: ["/api/connections"] });
+      queryClient.refetchQueries({ queryKey: ["/api/network/graph"] });
+      queryClient.refetchQueries({ queryKey: ["/api/analytics"] });
       if (!result.verified) throw new Error("Invalid verification code");
       return result;
     },
@@ -212,9 +223,9 @@ export default function Dashboard() {
       setNetworkGraph({ nodes: [], edges: [] });
       setSelectedConnectionId(null);
       setLatestEdgeKey(undefined);
-      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/network/graph"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.refetchQueries({ queryKey: ["/api/connections"] });
+      queryClient.refetchQueries({ queryKey: ["/api/network/graph"] });
+      queryClient.refetchQueries({ queryKey: ["/api/analytics"] });
       toast({ title: "Network Reset", description: "All connections have been cleared" });
     },
   });
@@ -231,7 +242,7 @@ export default function Dashboard() {
     }
   };
 
-  const displayGraph = graph || networkGraph;
+  const displayGraph = networkGraph.edges.length > 0 ? networkGraph : graph || networkGraph;
   const activePolicies = policies.filter((p) => p.enabled).length;
   const allowCount = connections.filter((c) => c.verdict === "ALLOW").length;
   const allowRate =

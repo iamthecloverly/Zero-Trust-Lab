@@ -25,7 +25,8 @@ export function createRateLimiter(windowMs: number, max: number) {
   }
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const key = req.ip || 'unknown';
+    // Safely extract IP, with fallback to session ID for proxied/unknown cases
+    const key = (req.ip || req.headers['x-forwarded-for']?.toString() || 'unknown') as string;
     const now = Date.now();
 
     if (!store[key] || now > store[key].resetTime) {

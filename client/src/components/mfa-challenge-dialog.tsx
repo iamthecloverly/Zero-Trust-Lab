@@ -103,7 +103,7 @@ export function MFAChallengeDialog({
               </p>
               <div className="mt-2 p-2 bg-accent rounded text-xs">
                 <p className="text-muted-foreground">
-                  💡 <strong>Demo Mode:</strong> Use code <code className="px-1 py-0.5 bg-background rounded">123456</code> or <code className="px-1 py-0.5 bg-background rounded">000000</code>
+                  💡 <strong>Demo Mode:</strong> Use code <code className="px-1 py-0.5 bg-background rounded">123456</code>
                 </p>
               </div>
             </div>

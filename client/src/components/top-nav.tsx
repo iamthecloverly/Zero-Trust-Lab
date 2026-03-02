@@ -24,7 +24,6 @@ export function TopNav({ onRunSimulation }: TopNavProps) {
   });
   const { data: analytics } = useQuery<AnalyticsResponse>({
     queryKey: ["/api/analytics"],
-    enabled: connections.length > 0,
   });
 
   const isLive = connections.length > 0;
