@@ -76,10 +76,20 @@ export default function Dashboard() {
   const { data: replayEvaluation } = useQuery<TrustEvaluation>({
     queryKey: ["/api/connections", selectedConnectionId, "evaluation"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/connections/${selectedConnectionId}/evaluation`);
+      const connection = connections.find((c) => c.id === selectedConnectionId);
+      if (!connection) throw new Error("Connection not found");
+      
+      // Send user/device/action as query params for serverless recovery
+      const params = new URLSearchParams({
+        userId: connection.sourceId,
+        deviceId: connection.targetId,
+        action: connection.action,
+      });
+      
+      const res = await apiRequest("GET", `/api/connections/${selectedConnectionId}/evaluation?${params}`);
       return res.json() as Promise<TrustEvaluation>;
     },
-    enabled: !!selectedConnectionId,
+    enabled: !!selectedConnectionId && connections.length > 0,
     staleTime: 30_000,
   });
 

@@ -310,8 +310,42 @@ async function route(method: string, pathname: string, req: NodeReq | Request) {
 
   if (pathname.startsWith("/api/connections/") && pathname.endsWith("/evaluation") && method === "GET") {
     const id = pathname.replace("/api/connections/", "").replace("/evaluation", "");
-    const connection = connections.find((c) => c.id === id);
-    if (!connection) return { status: 404, body: { error: "Connection not found" } };
+    let connection = connections.find((c) => c.id === id);
+    
+    // If connection not in memory (serverless restart), try to find it from query params or reconstruct
+    if (!connection) {
+      let userId: string | null = null;
+      let deviceId: string | null = null;
+      let action: string | null = null;
+      
+      if (isWebRequest(req)) {
+        const url = new URL(req.url);
+        userId = url.searchParams.get("userId");
+        deviceId = url.searchParams.get("deviceId");
+        action = url.searchParams.get("action");
+      } else {
+        // Parse query params from Node req.url
+        const urlStr = req.url ?? "";
+        if (urlStr.includes("?")) {
+          const queryStr = urlStr.split("?")[1];
+          const params = new URLSearchParams(queryStr);
+          userId = params.get("userId");
+          deviceId = params.get("deviceId");
+          action = params.get("action");
+        }
+      }
+      
+      if (userId && deviceId && action) {
+        const user = users.find((u) => u.id === userId);
+        const device = devices.find((d) => d.id === deviceId);
+        if (user && device) {
+          const evaluation = evaluateConnection(user, device, action);
+          return { status: 200, body: { verdict: evaluation.verdict, trustScore: evaluation.trustScore, breakdown: evaluation.breakdown } };
+        }
+      }
+    }
+    
+    if (!connection) return { status: 404, body: { error: "Connection not found - please provide userId, deviceId, and action query parameters" } };
 
     const user = users.find((u) => u.id === connection.sourceId);
     const device = devices.find((d) => d.id === connection.targetId);
