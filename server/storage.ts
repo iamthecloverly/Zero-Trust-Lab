@@ -303,10 +303,24 @@ export class DbStorage implements IStorage {
   }
 }
 
-// Use DbStorage when DATABASE_URL is set, otherwise fall back to in-memory storage
-export const storage: IStorage = process.env.DATABASE_URL
-  ? new DbStorage()
-  : new MemStorage();
+// Use DbStorage only when explicitly enabled, otherwise use in-memory storage
+// On Vercel, use MemStorage unless specifically configured for database
+let storage: IStorage;
+try {
+  const useDatabase = process.env.DATABASE_URL && process.env.USE_DATABASE === "true";
+  if (useDatabase) {
+    console.log("Using database storage with DATABASE_URL");
+    storage = new DbStorage();
+  } else {
+    console.log("Using in-memory storage");
+    storage = new MemStorage();
+  }
+} catch (error) {
+  console.warn("Failed to initialize database storage, falling back to in-memory storage:", error);
+  storage = new MemStorage();
+}
+
+export { storage };
 
 // Gracefully close the DB connection pool on process exit
 process.on("SIGTERM", async () => {
