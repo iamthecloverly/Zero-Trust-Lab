@@ -11,7 +11,7 @@ import {
   devices,
   connections,
   policies,
-} from "@shared/schema";
+} from "../shared/schema";
 import { randomUUID } from "crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";

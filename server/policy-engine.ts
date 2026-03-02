@@ -1,4 +1,4 @@
-import type { User, Device, Policy, TrustEvaluation } from "@shared/schema";
+import type { User, Device, Policy, TrustEvaluation } from "../shared/schema";
 
 const POLICY_CONFIG = {
   allowedRegions: ["US", "CA"],

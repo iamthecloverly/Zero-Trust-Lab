@@ -243,8 +243,16 @@
     line-height: 1.6;
   }
 
-  /* Consistent focus ring */
-  :focus-visible {
+  /* Consistent focus ring (avoid hidden/internal inputs) */
+  :where(
+    button,
+    a,
+    input:not([type="hidden"]),
+    select,
+    textarea,
+    [role="button"],
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 

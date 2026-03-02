@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { policyEngine } from "./policy-engine";
-import type { SimulationResponse } from "@shared/schema";
+import type { SimulationResponse } from "../shared/schema";
 import { createRateLimiter } from "./middleware/rate-limiter";
 
 // Rate limiters

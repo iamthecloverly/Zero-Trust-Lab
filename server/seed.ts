@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { users, devices, policies } from "@shared/schema";
+import { users, devices, policies } from "../shared/schema";
 import { randomUUID } from "crypto";
 
 const databaseUrl = process.env.DATABASE_URL;
