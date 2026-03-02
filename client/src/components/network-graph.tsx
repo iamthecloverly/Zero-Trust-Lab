@@ -30,6 +30,60 @@ export function NetworkGraphVisualization({
     let edgesDataSet: DataSet<Edge> | null = null;
     const edgeOriginalColors = new Map<string, string>();
 
+    // Helper: safely update dataset edges with error handling
+    const updateEdges = (updates: Array<{ id: string; color: object }>) => {
+      if (!edgesDataSet) return;
+      for (const u of updates) {
+        try {
+          edgesDataSet.update(u);
+        } catch (err) {
+          console.debug("[NetworkGraph] Edge update skipped:", u.id);
+        }
+      }
+    };
+
+    // Helper: reset edge colors and highlighting
+    const resetAllEdges = () => {
+      if (!edgesDataSet) return;
+      const updates: Array<{ id: string; color: object }> = [];
+      edgesDataSet.forEach((edge) => {
+        const id = edge.id as string;
+        const orig = edgeOriginalColors.get(id) || "#94a3b8";
+        updates.push({ id, color: { color: orig, highlight: orig, hover: orig } });
+      });
+      updateEdges(updates);
+    };
+
+    // Helper: flash newest edge on network stabilization
+    const flashLatestEdge = () => {
+      if (!latestEdgeKey || !edgesDataSet) return;
+      const origColor = edgeOriginalColors.get(latestEdgeKey);
+      const origEdge = edgesDataSet.get(latestEdgeKey);
+      const origWidth = (origEdge as { width?: number } | null)?.width ?? 2;
+      if (!origColor || !origEdge) return;
+
+      const bright = { color: "#ffffff", highlight: "#ffffff", hover: "#ffffff" };
+      const normal = { color: origColor, highlight: origColor, hover: origColor };
+
+      try {
+        edgesDataSet.update({ id: latestEdgeKey, width: 6, color: bright });
+        flashTimers.push(setTimeout(() => { 
+          try { edgesDataSet?.update({ id: latestEdgeKey, width: origWidth, color: normal }); } 
+          catch { /* ignore */ } 
+        }, 350));
+        flashTimers.push(setTimeout(() => { 
+          try { edgesDataSet?.update({ id: latestEdgeKey, width: 6, color: bright }); } 
+          catch { /* ignore */ } 
+        }, 700));
+        flashTimers.push(setTimeout(() => { 
+          try { edgesDataSet?.update({ id: latestEdgeKey, width: origWidth, color: normal }); } 
+          catch { /* ignore */ } 
+        }, 1050));
+      } catch (err) {
+        console.debug("[NetworkGraph] Edge flash skipped:", err);
+      }
+    };
+
     const init = () => {
       // Don't create vis-network in a 0×0 container (e.g. hidden tab).
       const rect = container.getBoundingClientRect();
@@ -128,39 +182,12 @@ export function NetworkGraphVisualization({
           }
         );
 
-        // ── Feature 6: flash newest edge after layout stabilises ───────────
+        // Flash newest edge after layout stabilises
         if (latestEdgeKey) {
-          network.once("stabilized", () => {
-            if (!edgesDataSet) return;
-            const origColor = edgeOriginalColors.get(latestEdgeKey);
-            const origEdge = edgesDataSet.get(latestEdgeKey);
-            const origWidth = (origEdge as { width?: number } | null)?.width ?? 2;
-            if (!origColor || !origEdge) return;
-
-            const bright = { color: "#ffffff", highlight: "#ffffff", hover: "#ffffff" };
-            const normal = { color: origColor, highlight: origColor, hover: origColor };
-
-            try {
-              edgesDataSet.update({ id: latestEdgeKey, width: 6, color: bright });
-              flashTimers.push(setTimeout(() => { try { edgesDataSet?.update({ id: latestEdgeKey, width: origWidth, color: normal }); } catch {} }, 350));
-              flashTimers.push(setTimeout(() => { try { edgesDataSet?.update({ id: latestEdgeKey, width: 6, color: bright }); } catch {} }, 700));
-              flashTimers.push(setTimeout(() => { try { edgesDataSet?.update({ id: latestEdgeKey, width: origWidth, color: normal }); } catch {} }, 1050));
-            } catch { /* ignore flash errors */ }
-          });
+          network.once("stabilized", flashLatestEdge);
         }
 
-        // ── Feature 2: node click → highlight connected edges ─────────────
-        const resetAllEdges = () => {
-          if (!edgesDataSet) return;
-          const updates: Array<{ id: string; color: object }> = [];
-          edgesDataSet.forEach((edge) => {
-            const id = edge.id as string;
-            const orig = edgeOriginalColors.get(id) || "#94a3b8";
-            updates.push({ id, color: { color: orig, highlight: orig, hover: orig } });
-          });
-          for (const u of updates) edgesDataSet.update(u);
-        };
-
+        // Node click → highlight connected edges
         network.on("click", (params) => {
           if (!edgesDataSet || !network) return;
           if (params.nodes.length > 0) {
@@ -182,7 +209,7 @@ export function NetworkGraphVisualization({
                     : { color: "#1e293b", highlight: "#1e293b", hover: "#1e293b" },
                 });
               });
-              for (const u of updates) edgesDataSet.update(u);
+              updateEdges(updates);
             }
             onNodeClick?.(nodeId);
           } else if (params.edges.length === 0 && highlightedNode !== null) {
@@ -200,7 +227,12 @@ export function NetworkGraphVisualization({
     // so switching tabs re-initialises the graph at the correct dimensions.
     const ro = new ResizeObserver(() => {
       if (network) {
-        try { network.redraw(); network.fit(); } catch { /* ignore */ }
+        try { 
+          network.redraw();
+          network.fit();
+        } catch (err) {
+          console.debug("[NetworkGraph] Redraw failed:", err);
+        }
       } else {
         init();
       }

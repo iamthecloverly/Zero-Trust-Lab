@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { users, devices, policies } from "../shared/schema";
 import { randomUUID } from "crypto";
+import { SAMPLE_USERS, SAMPLE_DEVICES, SAMPLE_POLICIES } from "./constants";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -14,33 +15,16 @@ const db = drizzle(sql);
 async function seed() {
   console.log("Seeding database...");
 
-  const sampleUsers = [
-    { id: "U1-Admin", role: "Admin", mfaEnabled: true },
-    { id: "U2-Engineer", role: "Engineer", mfaEnabled: true },
-    { id: "U3-Contractor", role: "Contractor", mfaEnabled: false },
-    { id: "U4-Intern", role: "Intern", mfaEnabled: false },
-  ];
-
-  const sampleDevices = [
-    { id: "D1-Laptop", type: "Laptop", location: "US", verified: true },
-    { id: "D2-Server", type: "Server", location: "US", verified: true },
-    { id: "D3-Mobile", type: "Mobile", location: "CA", verified: false },
-    { id: "D4-Desktop", type: "Desktop", location: "IN", verified: false },
-    { id: "D5-Tablet", type: "Tablet", location: "UK", verified: true },
-  ];
-
-  const samplePolicies = [
-    { id: randomUUID(), name: "Require MFA for All Users", enabled: true, type: "mfa" },
-    { id: randomUUID(), name: "Enforce Device Verification", enabled: true, type: "device" },
-    { id: randomUUID(), name: "Restrict Access to US/CA Only", enabled: true, type: "geo" },
-    { id: randomUUID(), name: "Admin Role Required for Servers", enabled: true, type: "role" },
-  ];
+  const samplePoliciesWithIds = SAMPLE_POLICIES.map(p => ({
+    ...p,
+    id: randomUUID(),
+  }));
 
   try {
     const existingUsers = await db.select().from(users);
     if (existingUsers.length === 0) {
       console.log("Inserting users...");
-      await db.insert(users).values(sampleUsers);
+      await db.insert(users).values(SAMPLE_USERS);
     } else {
       console.log("Users already exist, skipping...");
     }
@@ -48,7 +32,7 @@ async function seed() {
     const existingDevices = await db.select().from(devices);
     if (existingDevices.length === 0) {
       console.log("Inserting devices...");
-      await db.insert(devices).values(sampleDevices);
+      await db.insert(devices).values(SAMPLE_DEVICES);
     } else {
       console.log("Devices already exist, skipping...");
     }
@@ -56,7 +40,7 @@ async function seed() {
     const existingPolicies = await db.select().from(policies);
     if (existingPolicies.length === 0) {
       console.log("Inserting policies...");
-      await db.insert(policies).values(samplePolicies);
+      await db.insert(policies).values(samplePoliciesWithIds);
     } else {
       console.log("Policies already exist, skipping...");
     }

@@ -5,8 +5,10 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+// Allow up to 3 toasts visible simultaneously
+const TOAST_LIMIT = 3
+// Remove toast from DOM after 5 seconds (after dismissal animation)
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -179,7 +181,7 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+  }, []) // [] not [state]: re-registering on every state change accumulates duplicate listeners
 
   return {
     ...state,

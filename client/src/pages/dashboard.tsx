@@ -40,7 +40,8 @@ export default function Dashboard() {
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [latestEdgeKey, setLatestEdgeKey] = useState<string | undefined>(undefined);
 
-  // Read sessionStorage signals from TopNav / Scenario Library
+  // On mount: read sessionStorage signals written by TopNav / Scenario Library
+  // when navigating TO the dashboard from another page.
   useEffect(() => {
     try {
       const openSim = sessionStorage.getItem("open-simulation");
@@ -67,6 +68,14 @@ export default function Dashboard() {
     }
   }, []);
 
+  // When already on Dashboard, TopNav fires a custom event instead of navigating
+  // (navigation would be a no-op and the mount effect above would never re-run).
+  useEffect(() => {
+    const handleOpenSimulation = () => setSimulationOpen(true);
+    window.addEventListener("open-simulation", handleOpenSimulation);
+    return () => window.removeEventListener("open-simulation", handleOpenSimulation);
+  }, []);
+
   const { data: users = [] } = useQuery<User[]>({ queryKey: ["/api/users"] });
   const { data: devices = [] } = useQuery<Device[]>({ queryKey: ["/api/devices"] });
   const { data: connections = [] } = useQuery<Connection[]>({ queryKey: ["/api/connections"] });
@@ -75,24 +84,30 @@ export default function Dashboard() {
     queryKey: ["/api/network/graph"],
   });
 
-  // Feature 3: replay evaluation for a selected connection from history
+  // Derive outside the query so the key reflects the actual connection data.
+  const selectedConnection = connections.find((c) => c.id === selectedConnectionId) ?? null;
+
+  // Replay evaluation for a selected connection from history.
+  // selectedConnection fields are in the key so the query re-runs when
+  // connections data arrives after selectedConnectionId is set.
   const { data: replayEvaluation } = useQuery<TrustEvaluation>({
-    queryKey: ["/api/connections", selectedConnectionId, "evaluation"],
+    queryKey: [
+      "/api/connections", selectedConnectionId, "evaluation",
+      selectedConnection?.sourceId, selectedConnection?.targetId, selectedConnection?.action,
+    ],
     queryFn: async () => {
-      const connection = connections.find((c) => c.id === selectedConnectionId);
-      if (!connection) throw new Error("Connection not found");
-      
-      // Send user/device/action as query params for serverless recovery
+      if (!selectedConnection) throw new Error("Connection not found");
+
       const params = new URLSearchParams({
-        userId: connection.sourceId,
-        deviceId: connection.targetId,
-        action: connection.action,
+        userId: selectedConnection.sourceId,
+        deviceId: selectedConnection.targetId,
+        action: selectedConnection.action,
       });
-      
+
       const res = await apiRequest("GET", `/api/connections/${selectedConnectionId}/evaluation?${params}`);
       return res.json() as Promise<TrustEvaluation>;
     },
-    enabled: !!selectedConnectionId && connections.length > 0,
+    enabled: !!selectedConnectionId && !!selectedConnection,
     staleTime: 30_000,
   });
 

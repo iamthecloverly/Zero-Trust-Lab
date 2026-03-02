@@ -46,15 +46,21 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 function AppShell() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
   const handleRunSimulation = () => {
-    try {
-      sessionStorage.setItem("open-simulation", "1");
-    } catch {
-      // ignore private browsing / storage errors
+    if (location === "/") {
+      // Dashboard is already mounted — useEffect([]) won't re-run.
+      // Dispatch a custom event so Dashboard's event listener opens the dialog directly.
+      window.dispatchEvent(new CustomEvent("open-simulation"));
+    } else {
+      try {
+        sessionStorage.setItem("open-simulation", "1");
+      } catch {
+        // ignore private browsing / storage errors
+      }
+      navigate("/");
     }
-    navigate("/");
   };
 
   return (

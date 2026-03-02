@@ -55,39 +55,17 @@ export class MemStorage implements IStorage {
   }
 
   private initializeSampleData() {
-    const sampleUsers: InsertUser[] = [
-      { id: "U1-Admin", role: "Admin", mfaEnabled: true },
-      { id: "U2-Engineer", role: "Engineer", mfaEnabled: true },
-      { id: "U3-Contractor", role: "Contractor", mfaEnabled: false },
-      { id: "U4-Intern", role: "Intern", mfaEnabled: false },
-    ];
-
-    const sampleDevices: InsertDevice[] = [
-      { id: "D1-Laptop", type: "Laptop", location: "US", verified: true },
-      { id: "D2-Server", type: "Server", location: "US", verified: true },
-      { id: "D3-Mobile", type: "Mobile", location: "CA", verified: false },
-      { id: "D4-Desktop", type: "Desktop", location: "IN", verified: false },
-      { id: "D5-Tablet", type: "Tablet", location: "UK", verified: true },
-    ];
-
-    const samplePolicies: InsertPolicy[] = [
-      { name: "Require MFA for All Users", enabled: true, type: "mfa" },
-      { name: "Enforce Device Verification", enabled: true, type: "device" },
-      { name: "Restrict Access to US/CA Only", enabled: true, type: "geo" },
-      { name: "Admin Role Required for Servers", enabled: true, type: "role" },
-    ];
-
-    for (const user of sampleUsers) {
+    for (const user of SAMPLE_USERS) {
       const newUser: User = { ...user, mfaEnabled: user.mfaEnabled ?? false };
       this.users.set(newUser.id, newUser);
     }
 
-    for (const device of sampleDevices) {
+    for (const device of SAMPLE_DEVICES) {
       const newDevice: Device = { ...device, verified: device.verified ?? false };
       this.devices.set(newDevice.id, newDevice);
     }
 
-    for (const policy of samplePolicies) {
+    for (const policy of SAMPLE_POLICIES) {
       const id = randomUUID();
       const newPolicy: Policy = { ...policy, id, enabled: policy.enabled ?? true };
       this.policies.set(id, newPolicy);
