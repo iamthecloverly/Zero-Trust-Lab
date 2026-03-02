@@ -70,11 +70,11 @@ export function SimulationForm({
     } else if (!open) {
       form.reset({ userId: "", deviceId: "", action: "" });
     }
-  }, [open, defaultValues, form.reset]);
+  }, [open, defaultValues, form]);
 
   const handleSubmit = (data: SimulationFormValues) => {
     onSubmit(data);
-    form.reset();
+    form.reset({ userId: "", deviceId: "", action: "" });
   };
 
   return (
@@ -83,7 +83,7 @@ export function SimulationForm({
         <DialogHeader>
           <DialogTitle>Run Access Simulation</DialogTitle>
           <DialogDescription>
-            Select a user and device to simulate a connection attempt
+            Select a user, device, and action to simulate a connection attempt
           </DialogDescription>
         </DialogHeader>
 
