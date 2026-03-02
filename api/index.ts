@@ -1,5 +1,3 @@
-import { randomUUID } from "crypto";
-
 type User = { id: string; role: string; mfaEnabled: boolean };
 type Device = { id: string; type: string; location: string; verified: boolean };
 type Policy = { id: string; name: string; type: "mfa" | "device" | "geo" | "role"; enabled: boolean };
@@ -15,19 +13,25 @@ type Connection = {
   mfaVerified: boolean | null;
 };
 
-type RequestLike = {
+type NodeReq = {
   method?: string;
   url?: string;
   body?: unknown;
-  headers?: Record<string, string | string[] | undefined>;
-  on?: (event: string, callback: (chunk?: Buffer) => void) => void;
+  on?: (event: string, callback: (chunk?: unknown) => void) => void;
 };
 
-type ResponseLike = {
+type NodeRes = {
   statusCode?: number;
-  setHeader: (name: string, value: string) => void;
-  end: (body?: string) => void;
+  setHeader?: (name: string, value: string) => void;
+  end?: (body?: string) => void;
 };
+
+function uid() {
+  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 const users: User[] = [
   { id: "U1-Admin", role: "Admin", mfaEnabled: true },
@@ -45,25 +49,41 @@ const devices: Device[] = [
 ];
 
 const policies: Policy[] = [
-  { id: randomUUID(), name: "Require MFA for All Users", type: "mfa", enabled: true },
-  { id: randomUUID(), name: "Enforce Device Verification", type: "device", enabled: true },
-  { id: randomUUID(), name: "Restrict Access to US/CA Only", type: "geo", enabled: true },
-  { id: randomUUID(), name: "Admin Role Required for Servers", type: "role", enabled: true },
+  { id: uid(), name: "Require MFA for All Users", type: "mfa", enabled: true },
+  { id: uid(), name: "Enforce Device Verification", type: "device", enabled: true },
+  { id: uid(), name: "Restrict Access to US/CA Only", type: "geo", enabled: true },
+  { id: uid(), name: "Admin Role Required for Servers", type: "role", enabled: true },
 ];
 
 const connections: Connection[] = [];
 
-function sendJson(res: ResponseLike, status: number, payload: unknown) {
+function nodeJson(res: NodeRes, status: number, payload: unknown) {
   res.statusCode = status;
-  res.setHeader("Content-Type", "application/json");
-  res.end(JSON.stringify(payload));
+  res.setHeader?.("Content-Type", "application/json");
+  res.end?.(JSON.stringify(payload));
 }
 
-async function parseBody(req: RequestLike): Promise<Record<string, unknown>> {
-  if (req.body && typeof req.body === "object") {
-    return req.body as Record<string, unknown>;
+function webJson(status: number, payload: unknown) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function isWebRequest(req: unknown): req is Request {
+  return typeof Request !== "undefined" && req instanceof Request;
+}
+
+async function parseBody(req: NodeReq | Request): Promise<Record<string, unknown>> {
+  if (isWebRequest(req)) {
+    try {
+      return (await req.json()) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
   }
 
+  if (req.body && typeof req.body === "object") return req.body as Record<string, unknown>;
   if (typeof req.body === "string") {
     try {
       return JSON.parse(req.body) as Record<string, unknown>;
@@ -71,18 +91,16 @@ async function parseBody(req: RequestLike): Promise<Record<string, unknown>> {
       return {};
     }
   }
-
-  if (typeof req.on !== "function") {
-    return {};
-  }
+  if (typeof req.on !== "function") return {};
 
   return await new Promise((resolve) => {
-    const chunks: Buffer[] = [];
-    req.on?.("data", (chunk) => chunks.push((chunk as Buffer) ?? Buffer.from("")));
+    let data = "";
+    req.on?.("data", (chunk) => {
+      data += String(chunk ?? "");
+    });
     req.on?.("end", () => {
       try {
-        const text = Buffer.concat(chunks).toString("utf8");
-        resolve(text ? (JSON.parse(text) as Record<string, unknown>) : {});
+        resolve(data ? (JSON.parse(data) as Record<string, unknown>) : {});
       } catch {
         resolve({});
       }
@@ -101,30 +119,21 @@ function evaluateConnection(user: User, device: Device, action: string) {
     trustScore -= 30;
     breakdown.push({ label: "MFA Not Enabled", points: -30, icon: "shield-alert" });
   }
-
   if (enabledPolicies.some((p) => p.type === "device") && !device.verified) {
     trustScore -= 40;
     breakdown.push({ label: "Device Not Verified", points: -40, icon: "lock" });
   }
-
   if (enabledPolicies.some((p) => p.type === "geo") && !["US", "CA"].includes(device.location)) {
     trustScore -= 20;
     breakdown.push({ label: "Restricted Geographic Location", points: -20, icon: "map-pin" });
   }
-
-  if (
-    enabledPolicies.some((p) => p.type === "role") &&
-    device.type === "Server" &&
-    user.role !== "Admin"
-  ) {
+  if (enabledPolicies.some((p) => p.type === "role") && device.type === "Server" && user.role !== "Admin") {
     trustScore -= 10;
     breakdown.push({ label: "Insufficient Role Permissions", points: -10, icon: "user-x" });
   }
 
   const finalScore = Math.max(0, trustScore);
-  const verdict: Connection["verdict"] =
-    finalScore >= 70 ? "ALLOW" : finalScore >= 40 ? "CHALLENGE_MFA" : "DENY";
-
+  const verdict: Connection["verdict"] = finalScore >= 70 ? "ALLOW" : finalScore >= 40 ? "CHALLENGE_MFA" : "DENY";
   return { verdict, trustScore: finalScore, breakdown, action };
 }
 
@@ -135,22 +144,16 @@ function buildGraph() {
   ];
 
   const latestByPair = new Map<string, Connection>();
-  for (const conn of connections) {
-    latestByPair.set(`${conn.sourceId}-${conn.targetId}`, conn);
-  }
+  for (const conn of connections) latestByPair.set(`${conn.sourceId}-${conn.targetId}`, conn);
 
-  const edges = Array.from(latestByPair.values()).map((conn) => {
-    const label = conn.verdict === "ALLOW" ? "✓ ALLOW" : conn.verdict === "CHALLENGE_MFA" ? "⚠ MFA" : "✕ DENY";
-    const color = conn.verdict === "ALLOW" ? "#22c55e" : conn.verdict === "CHALLENGE_MFA" ? "#f59e0b" : "#ef4444";
-    return {
-      from: conn.sourceId,
-      to: conn.targetId,
-      label,
-      color,
-      dashes: conn.verdict !== "ALLOW",
-      width: conn.verdict === "ALLOW" ? 3 : 2,
-    };
-  });
+  const edges = Array.from(latestByPair.values()).map((conn) => ({
+    from: conn.sourceId,
+    to: conn.targetId,
+    label: conn.verdict === "ALLOW" ? "✓ ALLOW" : conn.verdict === "CHALLENGE_MFA" ? "⚠ MFA" : "✕ DENY",
+    color: conn.verdict === "ALLOW" ? "#22c55e" : conn.verdict === "CHALLENGE_MFA" ? "#f59e0b" : "#ef4444",
+    dashes: conn.verdict !== "ALLOW",
+    width: conn.verdict === "ALLOW" ? 3 : 2,
+  }));
 
   return { nodes, edges };
 }
@@ -160,7 +163,6 @@ function analytics() {
   const allowCount = connections.filter((c) => c.verdict === "ALLOW").length;
   const denyCount = connections.filter((c) => c.verdict === "DENY").length;
   const challengeCount = connections.filter((c) => c.verdict === "CHALLENGE_MFA").length;
-
   const avgTrustScore = total > 0 ? Math.round(connections.reduce((sum, c) => sum + c.trustScore, 0) / total) : 0;
 
   const policyViolations = [
@@ -212,52 +214,47 @@ function analytics() {
   };
 }
 
-export default async function handler(req: RequestLike, res: ResponseLike) {
-  try {
-    const method = (req.method ?? "GET").toUpperCase();
-    const url = new URL(req.url ?? "/", "https://zero-trust-lab.vercel.app");
-    const pathname = url.pathname;
+async function route(method: string, pathname: string, req: NodeReq | Request) {
+  if (pathname === "/api/users" && method === "GET") return { status: 200, body: users };
+  if (pathname === "/api/devices" && method === "GET") return { status: 200, body: devices };
+  if (pathname === "/api/connections" && method === "GET") return { status: 200, body: connections };
+  if (pathname === "/api/policies" && method === "GET") return { status: 200, body: policies };
+  if (pathname === "/api/network/graph" && method === "GET") return { status: 200, body: buildGraph() };
+  if (pathname === "/api/analytics" && method === "GET") return { status: 200, body: analytics() };
 
-    if (pathname === "/api/users" && method === "GET") return sendJson(res, 200, users);
-    if (pathname === "/api/devices" && method === "GET") return sendJson(res, 200, devices);
-    if (pathname === "/api/connections" && method === "GET") return sendJson(res, 200, connections);
-    if (pathname === "/api/policies" && method === "GET") return sendJson(res, 200, policies);
-    if (pathname === "/api/network/graph" && method === "GET") return sendJson(res, 200, buildGraph());
-    if (pathname === "/api/analytics" && method === "GET") return sendJson(res, 200, analytics());
+  if (pathname === "/api/network/reset" && method === "POST") {
+    connections.splice(0, connections.length);
+    return { status: 200, body: { success: true } };
+  }
 
-    if (pathname === "/api/network/reset" && method === "POST") {
-      connections.splice(0, connections.length);
-      return sendJson(res, 200, { success: true });
-    }
+  if (pathname === "/api/simulate" && method === "POST") {
+    const body = await parseBody(req);
+    const userId = typeof body.userId === "string" ? body.userId : "";
+    const deviceId = typeof body.deviceId === "string" ? body.deviceId : "";
+    const action = typeof body.action === "string" ? body.action : "";
+    if (!userId || !deviceId || !action) return { status: 400, body: { error: "Missing required fields" } };
 
-    if (pathname === "/api/simulate" && method === "POST") {
-      const body = await parseBody(req);
-      const userId = typeof body.userId === "string" ? body.userId : "";
-      const deviceId = typeof body.deviceId === "string" ? body.deviceId : "";
-      const action = typeof body.action === "string" ? body.action : "";
+    const user = users.find((u) => u.id === userId);
+    const device = devices.find((d) => d.id === deviceId);
+    if (!user || !device) return { status: 404, body: { error: "User or device not found" } };
 
-      if (!userId || !deviceId || !action) return sendJson(res, 400, { error: "Missing required fields" });
+    const evaluation = evaluateConnection(user, device, action);
+    const connection: Connection = {
+      id: uid(),
+      sourceId: userId,
+      targetId: deviceId,
+      action,
+      verdict: evaluation.verdict,
+      trustScore: evaluation.trustScore,
+      timestamp: new Date().toISOString(),
+      mfaChallenged: evaluation.verdict === "CHALLENGE_MFA",
+      mfaVerified: null,
+    };
 
-      const user = users.find((u) => u.id === userId);
-      const device = devices.find((d) => d.id === deviceId);
-      if (!user || !device) return sendJson(res, 404, { error: "User or device not found" });
-
-      const evaluation = evaluateConnection(user, device, action);
-      const connection: Connection = {
-        id: randomUUID(),
-        sourceId: userId,
-        targetId: deviceId,
-        action,
-        verdict: evaluation.verdict,
-        trustScore: evaluation.trustScore,
-        timestamp: new Date().toISOString(),
-        mfaChallenged: evaluation.verdict === "CHALLENGE_MFA",
-        mfaVerified: null,
-      };
-
-      connections.push(connection);
-
-      return sendJson(res, 200, {
+    connections.push(connection);
+    return {
+      status: 200,
+      body: {
         connection,
         evaluation: {
           verdict: evaluation.verdict,
@@ -265,63 +262,77 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
           breakdown: evaluation.breakdown,
         },
         graph: buildGraph(),
-      });
+      },
+    };
+  }
+
+  if (pathname === "/api/verify-mfa" && method === "POST") {
+    const body = await parseBody(req);
+    const connectionId = typeof body.connectionId === "string" ? body.connectionId : "";
+    const code = typeof body.code === "string" ? body.code : "";
+    if (!connectionId || !code) return { status: 400, body: { error: "Missing required fields" } };
+    if (!/^\d{6}$/.test(code)) return { status: 400, body: { error: "Invalid code format" } };
+
+    const connection = connections.find((c) => c.id === connectionId);
+    if (!connection) return { status: 404, body: { error: "Connection not found" } };
+    if (!connection.mfaChallenged) return { status: 400, body: { error: "MFA not required for this connection" } };
+
+    const verified = code === "123456";
+    connection.mfaVerified = verified;
+    return { status: 200, body: { verified, connection } };
+  }
+
+  if (pathname.startsWith("/api/policies/") && method === "PATCH") {
+    const id = pathname.replace("/api/policies/", "");
+    const body = await parseBody(req);
+    if (typeof body.enabled !== "boolean") return { status: 400, body: { error: "enabled must be a boolean" } };
+    const policy = policies.find((p) => p.id === id);
+    if (!policy) return { status: 404, body: { error: "Policy not found" } };
+    policy.enabled = body.enabled;
+    return { status: 200, body: policy };
+  }
+
+  if (pathname.startsWith("/api/policies/") && method === "GET") {
+    const id = pathname.replace("/api/policies/", "");
+    const policy = policies.find((p) => p.id === id);
+    return policy ? { status: 200, body: policy } : { status: 404, body: { error: "Policy not found" } };
+  }
+
+  if (pathname.startsWith("/api/connections/") && pathname.endsWith("/evaluation") && method === "GET") {
+    const id = pathname.replace("/api/connections/", "").replace("/evaluation", "");
+    const connection = connections.find((c) => c.id === id);
+    if (!connection) return { status: 404, body: { error: "Connection not found" } };
+
+    const user = users.find((u) => u.id === connection.sourceId);
+    const device = devices.find((d) => d.id === connection.targetId);
+    if (!user || !device) return { status: 404, body: { error: "User or device not found" } };
+
+    const evaluation = evaluateConnection(user, device, connection.action);
+    return { status: 200, body: { verdict: evaluation.verdict, trustScore: evaluation.trustScore, breakdown: evaluation.breakdown } };
+  }
+
+  return { status: 404, body: { error: "Not found" } };
+}
+
+export default async function handler(req: NodeReq | Request, res?: NodeRes) {
+  try {
+    const method = isWebRequest(req) ? req.method.toUpperCase() : (req.method ?? "GET").toUpperCase();
+    const urlText = isWebRequest(req) ? req.url : req.url ?? "/";
+    const pathname = new URL(urlText, "https://zero-trust-lab.vercel.app").pathname;
+    const result = await route(method, pathname, req);
+
+    if (res && typeof res.end === "function") {
+      nodeJson(res, result.status, result.body);
+      return;
     }
 
-    if (pathname === "/api/verify-mfa" && method === "POST") {
-      const body = await parseBody(req);
-      const connectionId = typeof body.connectionId === "string" ? body.connectionId : "";
-      const code = typeof body.code === "string" ? body.code : "";
-
-      if (!connectionId || !code) return sendJson(res, 400, { error: "Missing required fields" });
-      if (!/^\d{6}$/.test(code)) return sendJson(res, 400, { error: "Invalid code format" });
-
-      const connection = connections.find((c) => c.id === connectionId);
-      if (!connection) return sendJson(res, 404, { error: "Connection not found" });
-      if (!connection.mfaChallenged) return sendJson(res, 400, { error: "MFA not required for this connection" });
-
-      const verified = code === "123456";
-      connection.mfaVerified = verified;
-      return sendJson(res, 200, { verified, connection });
-    }
-
-    if (pathname.startsWith("/api/policies/") && method === "PATCH") {
-      const id = pathname.replace("/api/policies/", "");
-      const body = await parseBody(req);
-      if (typeof body.enabled !== "boolean") return sendJson(res, 400, { error: "enabled must be a boolean" });
-      const policy = policies.find((p) => p.id === id);
-      if (!policy) return sendJson(res, 404, { error: "Policy not found" });
-      policy.enabled = body.enabled;
-      return sendJson(res, 200, policy);
-    }
-
-    if (pathname.startsWith("/api/policies/") && method === "GET") {
-      const id = pathname.replace("/api/policies/", "");
-      const policy = policies.find((p) => p.id === id);
-      if (!policy) return sendJson(res, 404, { error: "Policy not found" });
-      return sendJson(res, 200, policy);
-    }
-
-    if (pathname.startsWith("/api/connections/") && pathname.endsWith("/evaluation") && method === "GET") {
-      const id = pathname.replace("/api/connections/", "").replace("/evaluation", "");
-      const connection = connections.find((c) => c.id === id);
-      if (!connection) return sendJson(res, 404, { error: "Connection not found" });
-
-      const user = users.find((u) => u.id === connection.sourceId);
-      const device = devices.find((d) => d.id === connection.targetId);
-      if (!user || !device) return sendJson(res, 404, { error: "User or device not found" });
-
-      const evaluation = evaluateConnection(user, device, connection.action);
-      return sendJson(res, 200, {
-        verdict: evaluation.verdict,
-        trustScore: evaluation.trustScore,
-        breakdown: evaluation.breakdown,
-      });
-    }
-
-    return sendJson(res, 404, { error: "Not found" });
+    return webJson(result.status, result.body);
   } catch (error) {
     console.error("Serverless API fatal error:", error);
-    return sendJson(res, 500, { error: "Internal server error" });
+    if (res && typeof res.end === "function") {
+      nodeJson(res, 500, { error: "Internal server error" });
+      return;
+    }
+    return webJson(500, { error: "Internal server error" });
   }
 }
