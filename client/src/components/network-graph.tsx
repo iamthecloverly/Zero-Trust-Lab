@@ -51,15 +51,15 @@ export function NetworkGraphVisualization({
               title: `${isUser ? "User" : "Device"}: ${node.id}`,
               shape: isUser ? "ellipse" : "box",
               color: {
-                background: node.color || (isUser ? "#6366f1" : "#64748b"),
-                border: isUser ? "#4f46e5" : "#475569",
+                background: node.color || (isUser ? "#a855f7" : "#0e7490"),
+                border: isUser ? "#9333ea" : "#0891b2",
                 highlight: {
-                  background: isUser ? "#818cf8" : "#94a3b8",
-                  border: isUser ? "#6366f1" : "#64748b",
+                  background: isUser ? "#c084fc" : "#22d3ee",
+                  border: isUser ? "#a855f7" : "#0e7490",
                 },
                 hover: {
-                  background: isUser ? "#818cf8" : "#94a3b8",
-                  border: isUser ? "#6366f1" : "#64748b",
+                  background: isUser ? "#c084fc" : "#22d3ee",
+                  border: isUser ? "#a855f7" : "#0e7490",
                 },
               },
               font: { color: "#ffffff", size: 13, face: "Inter, sans-serif" },
@@ -77,7 +77,7 @@ export function NetworkGraphVisualization({
         edgesDataSet = new DataSet<Edge>(
           Array.from(edgeByPair.values()).map((edge) => {
             const edgeId = `${edge.from}-${edge.to}`;
-            const color = edge.color || "#94a3b8";
+            const color = edge.color || "#a78bfa";
             edgeOriginalColors.set(edgeId, color);
             return {
               id: edgeId,
@@ -155,7 +155,7 @@ export function NetworkGraphVisualization({
           const updates: Array<{ id: string; color: object }> = [];
           edgesDataSet.forEach((edge) => {
             const id = edge.id as string;
-            const orig = edgeOriginalColors.get(id) || "#94a3b8";
+            const orig = edgeOriginalColors.get(id) || "#a78bfa";
             updates.push({ id, color: { color: orig, highlight: orig, hover: orig } });
           });
           for (const u of updates) edgesDataSet.update(u);
@@ -174,7 +174,7 @@ export function NetworkGraphVisualization({
               const updates: Array<{ id: string; color: object }> = [];
               edgesDataSet.forEach((edge) => {
                 const id = edge.id as string;
-                const orig = edgeOriginalColors.get(id) || "#94a3b8";
+                const orig = edgeOriginalColors.get(id) || "#a78bfa";
                 updates.push({
                   id,
                   color: connected.has(id)
@@ -243,11 +243,11 @@ export function NetworkGraphVisualization({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">Legend:</span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-5 rounded-full bg-[#6366f1]" />
+          <span className="inline-block h-3 w-5 rounded-full bg-[#a855f7]" />
           User
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-5 rounded bg-[#64748b]" />
+          <span className="inline-block h-3 w-5 rounded bg-[#0e7490]" />
           Device
         </span>
         <span className="hidden h-3 w-px bg-border sm:block" />
