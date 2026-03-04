@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# **[🚀 LIVE DEMO →](https://zerotrust-lab.onrender.com)**
+# **[🚀 LIVE DEMO →](https://zerotrust-lab.vercel.app/)**
 
 ### Interactive Zero Trust Security Visualization Platform
 
