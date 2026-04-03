@@ -60,13 +60,16 @@ export function computeAnalytics(
   for (const conn of connections) {
     const user = userMap.get(conn.sourceId);
     const device = deviceMap.get(conn.targetId);
-    if (!user || !device) continue;
+    if (!user || !device) {
+      console.warn(`analytics: skipping connection ${conn.id} — missing user "${conn.sourceId}" or device "${conn.targetId}"`);
+      continue;
+    }
 
     if (activePolicies.some((p) => p.type === "mfa") && !user.mfaEnabled)
       policyViolations[0].violationCount++;
     if (activePolicies.some((p) => p.type === "device") && !device.verified)
       policyViolations[1].violationCount++;
-    if (activePolicies.some((p) => p.type === "geo") && !POLICY_CONFIG.allowedRegions.includes(device.location as "US" | "CA"))
+    if (activePolicies.some((p) => p.type === "geo") && !(POLICY_CONFIG.allowedRegions as readonly string[]).includes(device.location))
       policyViolations[2].violationCount++;
     if (
       activePolicies.some((p) => p.type === "role") &&

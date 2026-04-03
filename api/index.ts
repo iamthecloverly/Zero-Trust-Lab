@@ -121,7 +121,7 @@ function evaluateConnection(user: User, device: Device, action: string) {
     trustScore -= 40;
     breakdown.push({ label: "Device Not Verified", points: -40, icon: "lock" });
   }
-  if (enabledPolicies.some((p) => p.type === "geo") && !["US", "CA"].includes(device.location)) {
+  if (enabledPolicies.some((p) => p.type === "geo") && !(["US", "CA"] as string[]).includes(device.location)) {
     trustScore -= 20;
     breakdown.push({ label: "Restricted Geographic Location", points: -20, icon: "map-pin" });
   }
@@ -142,7 +142,10 @@ function buildGraph() {
   ];
 
   const latestByPair = new Map<string, Connection>();
-  for (const conn of connections) latestByPair.set(`${conn.sourceId}-${conn.targetId}`, conn);
+  const sortedConns = connections.slice().sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  for (const conn of sortedConns) latestByPair.set(`${conn.sourceId}-${conn.targetId}`, conn);
 
   const edges = Array.from(latestByPair.values()).map((conn) => ({
     from: conn.sourceId,
@@ -176,7 +179,7 @@ function analytics() {
     if (!user || !device) continue;
     if (policies.some((p) => p.enabled && p.type === "mfa") && !user.mfaEnabled) policyViolations[0].violationCount++;
     if (policies.some((p) => p.enabled && p.type === "device") && !device.verified) policyViolations[1].violationCount++;
-    if (policies.some((p) => p.enabled && p.type === "geo") && !["US", "CA"].includes(device.location)) policyViolations[2].violationCount++;
+    if (policies.some((p) => p.enabled && p.type === "geo") && !(["US", "CA"] as string[]).includes(device.location)) policyViolations[2].violationCount++;
     if (policies.some((p) => p.enabled && p.type === "role") && device.type === "Server" && user.role !== "Admin") policyViolations[3].violationCount++;
   }
 
@@ -232,6 +235,11 @@ async function route(method: string, pathname: string, req: NodeReq | Request) {
     const action = typeof body.action === "string" ? body.action : "";
     if (!userId || !deviceId || !action) return { status: 400, body: { error: "Missing required fields" } };
 
+    const VALID_ACTIONS = ["read", "write", "access", "admin"];
+    if (!VALID_ACTIONS.includes(action)) {
+      return { status: 400, body: { error: `Invalid action. Must be one of: ${VALID_ACTIONS.join(", ")}` } };
+    }
+
     const user = users.find((u) => u.id === userId);
     const device = devices.find((d) => d.id === deviceId);
     if (!user || !device) return { status: 404, body: { error: "User or device not found" } };
@@ -268,24 +276,43 @@ async function route(method: string, pathname: string, req: NodeReq | Request) {
     const body = await parseBody(req);
     const connectionId = typeof body.connectionId === "string" ? body.connectionId : "";
     const code = typeof body.code === "string" ? body.code : "";
-    const connectionData = typeof body.connection === "object" && body.connection !== null ? body.connection as Connection : null;
+    const fallbackUserId = typeof body.userId === "string" ? body.userId : "";
+    const fallbackDeviceId = typeof body.deviceId === "string" ? body.deviceId : "";
+    const fallbackAction = typeof body.action === "string" ? body.action : "";
 
     if (!connectionId || !code) return { status: 400, body: { error: "Missing required fields" } };
     if (!/^\d{6}$/.test(code)) return { status: 400, body: { error: "Invalid code format" } };
 
     let connection = connections.find((c) => c.id === connectionId);
 
-    // Serverless recovery: restore connection from client data on cold start
-    if (!connection && connectionData?.id === connectionId) {
-      connections.push(connectionData);
-      connection = connectionData;
+    // Serverless cold-start recovery: re-evaluate server-side using source params.
+    // Never trust verdict/trustScore from the client — always recompute.
+    if (!connection && fallbackUserId && fallbackDeviceId && fallbackAction) {
+      const user = users.find((u) => u.id === fallbackUserId);
+      const device = devices.find((d) => d.id === fallbackDeviceId);
+      if (user && device) {
+        const evaluation = evaluateConnection(user, device, fallbackAction);
+        const recovered: Connection = {
+          id: connectionId,
+          sourceId: fallbackUserId,
+          targetId: fallbackDeviceId,
+          action: fallbackAction,
+          verdict: evaluation.verdict,
+          trustScore: evaluation.trustScore,
+          timestamp: new Date().toISOString(),
+          mfaChallenged: evaluation.verdict === "CHALLENGE_MFA",
+          mfaVerified: null,
+        };
+        connections.push(recovered);
+        connection = recovered;
+      }
     }
 
     if (!connection) return { status: 404, body: { error: "Connection not found" } };
     if (!connection.mfaChallenged) return { status: 400, body: { error: "MFA not required for this connection" } };
 
-    // Demo codes for the educational lab — not for production use
-    const verified = code === "123456" || code === "000000";
+    // Demo MFA code for the educational lab — replace with a real TOTP provider for production use.
+    const verified = code === "123456";
     connection.mfaVerified = verified;
     return { status: 200, body: { verified, connection } };
   }

@@ -24,6 +24,10 @@ export const POLICY_CONFIG = {
   adminRole: "Admin",
 } as const;
 
+// Valid simulation actions
+export const VALID_ACTIONS = ["read", "write", "access", "admin"] as const;
+export type ValidAction = typeof VALID_ACTIONS[number];
+
 // Sample data for seeding
 export const SAMPLE_USERS = [
   { id: "U1-Admin", role: "Admin", mfaEnabled: true },

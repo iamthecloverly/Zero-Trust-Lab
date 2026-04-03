@@ -39,7 +39,7 @@ export class ZeroTrustPolicyEngine {
     }
 
     const geoPolicy = enabledPolicies.find((p) => p.type === "geo");
-    if (geoPolicy && !POLICY_CONFIG.allowedRegions.includes(device.location as "US" | "CA")) {
+    if (geoPolicy && !(POLICY_CONFIG.allowedRegions as readonly string[]).includes(device.location)) {
       trustScore += penalties.GEO_RESTRICTED;
       breakdown.push({
         label: "Restricted Geographic Location",
@@ -81,7 +81,7 @@ export class ZeroTrustPolicyEngine {
   buildNetworkGraph(
     users: User[],
     devices: Device[],
-    connections: Array<{ sourceId: string; targetId: string; verdict: string; trustScore: number }>
+    connections: Array<{ sourceId: string; targetId: string; verdict: string; trustScore: number; timestamp?: string }>
   ) {
     const nodes = [
       ...users.map((u) => ({
@@ -96,9 +96,14 @@ export class ZeroTrustPolicyEngine {
       })),
     ];
 
-    // Keep only the most recent verdict per user→device pair to avoid duplicate edge IDs
+    // Keep only the most recent verdict per user→device pair to avoid duplicate edge IDs.
+    // Sort ascending so later entries overwrite earlier ones deterministically.
+    const sortedConns = connections.slice().sort((a, b) => {
+      if (!a.timestamp || !b.timestamp) return 0;
+      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+    });
     const latestByPair = new Map<string, typeof connections[0]>();
-    for (const conn of connections) {
+    for (const conn of sortedConns) {
       latestByPair.set(`${conn.sourceId}-${conn.targetId}`, conn);
     }
 

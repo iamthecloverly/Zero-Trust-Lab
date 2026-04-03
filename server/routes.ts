@@ -6,6 +6,7 @@ import { computeAnalytics } from "./analytics";
 import type { SimulationResponse } from "../shared/schema";
 import { createRateLimiter } from "./middleware/rate-limiter";
 import { asyncHandler, errorHandler } from "./middleware/error-handler";
+import { VALID_ACTIONS } from "./constants";
 
 const MAX_FIELD_LENGTH = 100;
 
@@ -31,6 +32,7 @@ export async function setupRoutes(app: Express): Promise<void> {
         targetId: c.targetId,
         verdict: c.verdict,
         trustScore: c.trustScore,
+        timestamp: c.timestamp,
       }))
     );
   }
@@ -90,6 +92,10 @@ export async function setupRoutes(app: Express): Promise<void> {
 
     if (userId.length > MAX_FIELD_LENGTH || deviceId.length > MAX_FIELD_LENGTH || action.length > MAX_FIELD_LENGTH) {
       return res.status(400).json({ error: "Input too long" });
+    }
+
+    if (!(VALID_ACTIONS as readonly string[]).includes(action)) {
+      return res.status(400).json({ error: `Invalid action. Must be one of: ${VALID_ACTIONS.join(", ")}` });
     }
 
     const user = await storage.getUser(userId);
@@ -166,7 +172,7 @@ export async function setupRoutes(app: Express): Promise<void> {
   }));
 
   app.post("/api/verify-mfa", mfaLimiter, asyncHandler(async (req, res) => {
-    const { connectionId, code, connection: connectionFallback } = req.body;
+    const { connectionId, code, userId, deviceId, action } = req.body;
 
     if (!connectionId || !code) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -184,11 +190,24 @@ export async function setupRoutes(app: Express): Promise<void> {
 
     let connection = await storage.getConnection(connectionId);
 
-    // Fallback to connection data sent from client for serverless recovery
-    if (!connection && connectionFallback) {
-      connection = connectionFallback;
+    // Serverless cold-start recovery: re-evaluate server-side using source params.
+    // Never trust verdict/trustScore from the client — always recompute.
+    if (!connection && typeof userId === 'string' && typeof deviceId === 'string' && typeof action === 'string') {
+      const user = await storage.getUser(userId);
+      const device = await storage.getDevice(deviceId);
+      if (user && device) {
+        const policies = await storage.getPolicies();
+        const evaluation = policyEngine.evaluateConnection(user, device, action, policies);
+        connection = await storage.createConnection({
+          sourceId: userId,
+          targetId: deviceId,
+          action,
+          verdict: evaluation.verdict,
+          trustScore: evaluation.trustScore,
+        });
+      }
     }
-    
+
     if (!connection) {
       return res.status(404).json({ error: "Connection not found" });
     }

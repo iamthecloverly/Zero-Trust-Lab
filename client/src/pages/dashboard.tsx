@@ -135,7 +135,11 @@ export default function Dashboard() {
       const res = await apiRequest("POST", "/api/verify-mfa", {
         connectionId: currentConnectionId,
         code,
-        connection: currentConnection || undefined, // Sent for serverless cold-start recovery
+        // Sent for serverless cold-start recovery — server re-evaluates from these params,
+        // never trusts client-supplied verdict or trustScore.
+        userId: currentConnection?.sourceId,
+        deviceId: currentConnection?.targetId,
+        action: currentConnection?.action,
       });
 
       if (!res.ok) {

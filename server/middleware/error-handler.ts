@@ -4,7 +4,7 @@ import type { Request, Response, NextFunction } from 'express';
  * Wraps an async route handler to catch errors and return standardized error response
  */
 export function asyncHandler(
-  handler: (req: Request, res: Response, next: NextFunction) => Promise<void | any>
+  handler: (req: Request, res: Response, next: NextFunction) => Promise<void | Response>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(handler(req, res, next)).catch(next);
