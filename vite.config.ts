@@ -30,6 +30,9 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // lightningcss (Vite 8 default) rejects compound pseudo-selectors generated
+    // by @tailwindcss/vite. Use esbuild for CSS minification instead.
+    cssMinify: "esbuild",
   },
   server: {
     fs: {
